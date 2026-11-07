@@ -36,7 +36,8 @@ It is also unknown whether the device's updater checks it.
 - 16-bit instructions have bit 7 of the first byte set (the NDS32 rule). A linear walk stays in sync across thousands of instructions.
 - Disassemble with a real toolchain: `tools/build-binutils.sh` builds `nds32be-elf-{as,ld,objdump,objcopy}` from Ubuntu's `binutils-source` 2.42
   (GNU upstream still ships the NDS32 port in 2.42). Capstone has no NDS32 support.
-- **Runtime address = file offset + 0x10000 (inferred, strong evidence).** The CFW trampolines call absolute
+- **Runtime address = file offset + 0x10000 (proved).** Also confirmed independently: 699 `sethi/ori` pairs in stock code resolve to printable C strings at +0x10000, against 17 at +0.
+  Original evidence: The CFW trampolines call absolute
   addresses `0x16bd3e, 0x16be0a, ...`; each minus 0x10000 lands on a `push25` prologue (`fc xx ..`) in the appended
   blob (9 of 12 on the nose, the rest look like leaf functions). So the app runs from 0x10000, probably behind a 64 KB
   bootloader that is not part of the HTFW file. A linker script must use `. = 0x10000 + file_offset`.
@@ -84,3 +85,23 @@ clearly built the way described above, so the practical goal is the same method 
 - Decode the u32 at header offset 4.
 - Analyse segment `c` (Thumb, separate Cortex-M MCU?) and the `c/g/f/e` changes in CFW0.9.4.
 - **Nothing has been flashed or tested on a device.** Anything produced from this needs a recovery path (bootloader/DFU) before it goes near hardware; a bad CRC or a bad hook can brick the unit.
+
+## 6. Vendor SDK identification and symbol recovery (added after the first pass)
+
+The NDS32 image prints this boot banner, so the SoC firmware is built on the **MVsilicon B1 SDK**
+("Mountain View Silicon Technology Co.,Ltd.", `SDK Version: %d.%d.%d`). Other strings: `*BP10-LYM`,
+`../bt_audio_app_src/main.c`, `AudioCoreService`, `BtLib Version`, `Audio Decoder Version`, `Fatfs presearch acc Lib Version`.
+The SDK itself is not publicly downloadable (see session notes: vendor/distributor access only).
+
+Structure inferred from assert/source strings:
+- **SDK part:** started from the SDK's `bt_audio_app` example (`bt_audio_app_src/main.c`); prebuilt libraries for the Bluetooth stack, decoders and FatFS.
+- **Manufacturer part:** `../UserSources/Components/WinManager/WinManager.c` (UI window/message manager, `WinMessageListRegister`
+  at runtime 0x16358, `WinGlobalMessageListRegister` at 0x163ac). Effect handling near 0x57754 ("Get Audio Effect Parameter From FLASH").
+- The SoC also shows an SPI-slave audio task ("SPIS Audio task"), so another processor may exchange audio with it. Chip identity of the other IC(s) is unconfirmed.
+
+`tools/symbols.py` produces `docs/symbols_stock_v1.3.3.csv`: 4,512 call-target functions found, 198 that reference strings
+(runtime address, call count, size hint, strings). This is a starting point for naming, not a finished symbol table; function
+boundaries come from `jal` targets only, so functions only reached via pointer tables are missed.
+
+Corrections to earlier statements: the "SIGABRT"/ARM-libc Cortex-M segment `c` has essentially no peripheral register accesses (movw/movt-checked), so
+it is compute-style code loaded into RAM; whether it runs on an i.MX RT or another core is still unknown.

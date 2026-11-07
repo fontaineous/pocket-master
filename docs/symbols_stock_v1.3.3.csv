@@ -1,0 +1,222 @@
+runtime_addr,calls_in,size_hint,strings
+0x14664,1,104,V1.0.01
+0x14928,1,80,TimeOut Disconnect Client
+0x14978,1,112,TimeOut Disconnect Central
+0x149f0,1,132,Malloc memory for List successful
+0x14acc,3,52,Close Ble Role %d
+0x14b00,3,68,open Ble Role %d
+0x14b70,2,128,No Memory for List
+0x14bf0,1,72,%02x
+0x1507c,3,104,Not Devices %d; Max Device Num
+0x150e4,1,116,Connect State 0x%02x|Not Devices %d; Max Device Num %d
+0x15270,2,56,Has been connected
+0x152a8,1,220,Close Scan|BleListMemInit failed!
+0x15384,1,88,Open Scan for Connect
+0x153dc,2,260,Time Out Close Connect|Time Out Close Scan
+0x157c8,1,92,Uart DMA Rx
+0x16358,17,84,../UserSources/Components/WinManager/WinManager.c|WinMessageListRegister|sizeList<=WIN_MSG_NUM_MAX
+0x163ac,1,84,../UserSources/Components/WinManager/WinManager.c|WinGlobalMessageListRegister|sizeList<=WIN_GLOBALMSG_NUM_MAX
+0x16b88,1,5332,NULL|%.0f|%.0fHz|%.0fms|%.1f%%|%.0fkHz|%.1fkHz|%.2fHz|%.0fdB|%.1fdB|%.1f:1|Limit|%.1fms|%.2f|%.0fcents|Mute|R%.0f|Center|L%.0f|%.1f|+%.0fdB
+0x1940c,1,608,%d %s
+0x197f8,3,3564,1 %s
+0x1c58c,6,236,Basic|Mode|Clone
+0x1c8a4,3,108,%s - %s
+0x21100,2,5416,%d.%ds
+0x23df0,1,928,%d%%
+0x24a20,1,96,P%02d
+0x26b20,2,88,%ddB
+0x26b78,2,88,%ddB
+0x26bd0,2,88,%ddB
+0x26c28,2,88,%ddB
+0x27164,2,1180,B0.0.02
+0x28358,3,6324,NR Calibrate Value: %d|BT ON|BT OFF|BT/USB In|Both|Input|Light:%d|V0.0.02|B0.0.02|V0.0.01|%08x|dspVer= %s
+ mcuVer= %s
+ bootVer= %s
+ HwVer= %s
+ uid=
+ %s|SDRAM
+FAIL:%lu|light:%d|Please Test BT|SDRAM
+FAIL :%d|SDRAM
+SUCCESS|SDRAM SUCCESS|Please Test Enc Key|Please Test Audio|Please Test
+Screen Light|Test Finish
+Please Quit
+0x2c160,3,112,F%02d|P%02d
+0x2c4f8,4,1356,GUI_MAIN_TASK
+0x34ed0,9,672,No
+data
+0x3ff2c,1,1936,NETSCAPE
+0x4695c,5,744,;.;:-_
+0x48d28,8,1724,Text
+0x495c0,4,1188,Option 1
+Option 2
+Option 3
+Option 4
+Option 5
+0x4c58c,19,1048,QME-10
+0x4dd0c,1,416,Error
+0x4df84,6,700,QME-10
+0x4edc4,1,2268,QME-10
+0x50644,2,132,V0.0.1
+0x50724,2,16,V1.3.3
+0x5148c,2,72,DRUM Audio task
+0x51b54,1,96,Flash Task
+0x51ca0,3,128,User Msg Task
+0x51f90,1,244,SPIS Audio task
+0x521c4,1,120,BT State: %d
+0x52298,1,180,Audio|BLE
+0x5234c,1,84,Pocket Master
+0x523a0,1,20,Pocket Master Audio
+0x52594,1,472,BT audio data fifo reset|insert data len err! i:%ld;d:%d|BT audio data fifo full
+0x52790,1,188,Decoder Service Start...|En Channel|audio_decoder_initialize error code:%ld!
+0x528e8,1,116,Btplay:Decoder service Stopped
+0x5295c,1,64,BtPlayCt->Source1Decoder
+0x529d0,1,1760,Bt Play mode|Decoder service Started|Bt Play Mode Started|Decoder service created|sbc decoder start success|MSG_PLAY_PAUSE|MSG_FF_FB_END|MSG_PRE|MSG_FF_START|BT PLAY STATE=%d|MSG_NEXT|MSG_FB_START|MSG_BT_PLAY_VOLUME_SET
+0x530b0,1,324,BtAudioPlay app create fail!|BtPlayResMalloc Res Error!|BtAudioPlay
+0x531f4,1,252,!!BtPlayCt
+0x53438,2,728,confirm bt disconnect|kill bt|Sleep|DAC0 DACX All Disable!!!!!!!!!!|Device service paused
+0x53710,1,296,ModeStart:--------------------%s--------------------
+0x53940,1,996,MSG_MIC_FIRST|[BT_STATE]:BT Connected...|MSG_MON_VOLDOWN|MSG_MAIN_VOL_DW|MSG_3D|MSG_MIC_EFFECT_UP|ReverbStep = %d|MSG_MIC_VOLUP|MSG_REC_VOLDOWN|MSG_BT_PLAY_SYNC_VOLUME_CHANGED|MSG_MON_VOLUP|MSG_EFFECTMODE|EffectMode = %d|MSG_MUSIC_VOLUP|MSG_MUTE|MSG_REC_VOLUP|MSG_DEVICE_SERVICE_BATTERY_LOW|MSG_MUSIC_VOLDOWN|[BT_STATE]:BT Disconnected...|Bt Disconnect Reason:|BT_DISCON_REASON_REMOTE_DIS|MSG_VOCAL_CUT|MSG_MAIN_VOL_UP|MSG_MIC_VOLDOWN|MSG_VB|menu key|MSG_DEVICE_SERVICE_DIANYIN|BT_DISCON_REASON_LINKLOSS|BT_DISCON_REASON_LOCAL_DIS
+0x53e9c,1,100,MainApp
+0x53f3c,1,428,MainApp:%d;%d|MusicVolume:%d;%d|EffectMode:%d;%d|MicVolume:%d;%d|HfVolume:%d;%d|ReverbStep:%d;%d
+0x540e8,1,228,AudioResRelease|Sink0Buf_DAC0|Source0Buf_ADC1|ADC1FIFO|AudioResRelease ok|AudioResRelease remain mem size: %d
+0x541cc,2,216,AudioResMalloc|mainAppCt.SamplesPreFrame = %d|Audio Res Malloc from End|malloc Sink0Buf_DAC0 error|malloc ADCFIFO error|malloc Source0Buf_ADC1 error
+0x542a4,1,3896,AudioResInit|DAC0 DACX All Disable!!!!!!!!!!|__BBResetBle succeed|Res Error!|Error create SPIS|MEDIA_PLAY_MODE_FAILURE|bb and bt stack reset|AudioCore service created|MSG_APP_RES_RELEASE_SUC|Remain mem size: %dK|Mode Started|msg.msgId == MSG_AUDIO_CORE_FRAME_SIZE_CHANGE|msg.msgId == MSG_AUDIO_CORE_EFFECT_CHANGE|exit stopped OK !|Find New:%s @:%s  DevOut:%d|AudioCore service started|Backup:%d|select 0:%s|Device service created|Device service started|Wait FrameChage|select 1:%s|-- usb mix play and pause|Work change Jitter!|BLE buffer Init Error!|PC buffer Init Error!|exiting %s to %s After Created
+0x551dc,1,44,SamplesFrameUpdataMsg
+0x55208,1,44,EffectUpdataMsg
+0x5573c,4,104,USB MIC SRC
+0x557f8,10,104,Unknow Mode
+0x55868,1,1112,USB MIC SRC|USB MIC SampleRate Set:%ld|USB Speaker SRC|USB Speaker SampleRate Set:%ld
+0x55cc4,1,712,UsbAudioSpeaker.AudioSampleRate:%u|UsbAudioMic.AudioSampleRate:%u
+0x56140,2,188,UsbDevicePlayDeInit
+0x561fc,1,116,UsbDevice:App enable|RESET NVIC BT Priority
+0x56270,1,64,UsbDevice:Appn disable
+0x562b0,1,48,UsbDeviceSleep
+0x563fc,1,604,UsbDevicePlayInit|UsbAudioMic.SRCOutBuf memory error|mainAppCt.SourceBuf_UsbIn memory error|UsbAudioSpeaker.Resampler memory error|UsbAudioSpeaker.PCMBuffer memory error|UsbSpeaker_Buf  memory error|mainAppCt.SinkBuf_UsbOut memory error|UsbAudioMic.Resampler memory error|UsbAudioMic.PCMBuffer memory error|Usb Mic_Buf  memory error
+0x569a0,1,180,WaitingPlay|app create fail!
+0x56aa4,1,116,Kill Ct
+0x56b18,1,472,kuickly|SLOW
+0x56cf0,1,48,malloc err; no mem
+0x56d20,1,128,free Audio SRA|open SRA|audioSourceAdjustCt == NULL
+0x56da0,6,152,close SRA|audioSourceAdjustCt == NULL
+0x5702c,2,184,AudioEffectsAllDisable
+0x570e4,6,408,AudioEffectsDeInit
+0x5727c,2,68,AudioEffectsInit
+0x57334,4,168,EQContext mem malloc err! %ld
+0x57618,1,108,EffectPcmBufMalloc OK|EchoAudioBuf malloc err|pcm_buf_1 malloc err
+0x576d0,1,132,Get Audio Effect Name From FLASH!!!!!!
+0x57754,1,200,FUNC_ID_EFFECT_MODE -> %d|Get Audio Effect Parameter From Data.c!!!!!!|No Audio effect File load!!!!|Get Audio Effect Parameter From FLASH!|number:%d ; eff_mode:%d ; len:%d name:%s
+0x57c84,1,148,Cnt=%d
+0x57d18,2,88,Menu Timer OUT
+0x57d78,1,80,MicVolume = %d
+0x57e30,14,128,Unmute|Mute
+0x57eb0,1,168,APP_SOURCE_NUM vol = %d
+0x57f58,1,168,APP_SOURCE_NUM vol = %d
+0x58000,2,100,APP_SOURCE_NUM vol = %d
+0x58064,1,100,MIC_SOURCE_NUM vol = %d
+0x580c8,1,100,MIC_SOURCE_NUM vol = %d
+0x58238,1,304,vol up|MIC_SOURCE_NUM vol = %d|dac 0sink0 vol = %d|APP_SOURCE_NUM vol = %d
+0x58368,1,304,vol down|MIC_SOURCE_NUM vol = %d|dac0 sink vol = %d|APP_SOURCE_NUM vol = %d
+0x584cc,1,492,rec music|not rec music
+0x58738,1,308,gCtrlVars.sys_sample_rate = %d
+0x5b150,1,364,[Write ]|%02x|[Read ]
+0x5b3dc,1,272,4:Rec Bypass Gain        4:Rec Effect Remind Gain 4:Usb Out Gain           2:I2s In Gain            2:Bt In Gain|Noise Suppressor
+0x5b684,1,808,aAbBCdDeEFgGX
+0x5cf40,1,3360,addr = %x|Communication_Effect_AEC write|buf[0] = %d|Communication_Effect_AEC ask|p->param_cnt = %d
+0x5e16c,1,148,IsEffectChange|IsEffectSampleLenChange
+0x5e200,1,296,audio effect OK|audio effect list illega;read list= %d; local_list = %d|audio effect list not equal
+0x5e8b8,1,1628,Loading control vars as default
+0x5ef1c,1,252,InitBle --
+0x5f03c,1,52,Scan and Advertising Close
+0x5f278,2,340,MVB1
+0x5f3cc,3,176,BPBakSize changed; erase all
+0x5f48c,2,312,Save BP To Flash Fail
+0x5f5c4,1,308,Load BP INFO START|Load BP From Flash Fail|BPBakSize changed; erase all
+0x5f7e0,1,248,Detect:Is usb device|Detect:Not usb device|Detect:Out as usb device|Detect:Plus as usb device
+0x5f9a0,1,232,RstFlag = %x|cpu core reset|system reset|cpu debug reset|LVD reset|watchdog reset|pin reset|power on reset
+0x5fb18,1,436,****************************************************************||                    MVsilicon B1 SDK                      |||            Mountain View Silicon Technology Co.;Ltd.         |||            SDK Version: %d.%d.%d                                ||sys clk =%ld|../bt_audio_app_src/main.c|bt em config error!
+you must check BB_EM_SIZE
+%s%u|bt em size:%uKB|Audio Decoder Version: %s|Driver Version: %s %x|BtLib Version: %s|Fatfs presearch acc Lib Version: %s
+0x602d0,2,728,MSG_AUDIO_CORE_HOLD
+0x605b8,1,124,AudioCoreService|AudioCoreService create fail!
+0x60838,1,100,++++++[BT_OFFSET]  offset:0x%x ++++++|$$$[BT_OFFSET] update $$$|[BT_OFFSET]update Error!!!
+0x608e0,3,288,bluetooth stack service init.|BtStack|BtStack service create fail!
+0x60a00,2,148,!!btStackServiceCt|Bt Stack Uninit fail!!!
+0x60b3c,1,1240,acl is connected; disconnect...|-------- paging...; cancel|BtStackServiceEntrance.|error init bt device|bt device init success!|BB NEED REST!!!|bt reset start|bt reset complete|BLE ERROR:0x%x|BT platform reset|[btCheckEventList]: BT_EVENT_AVRCP_DISCONNECT|[btCheckEventList]: BT_EVENT_L2CAP_LINK_DISCONNECT|BT ERROR:0x%x|BLE STACK INIT ERROR
+0x6102c,1,148,confirm bt disconnect|clear all pairing list|[Enter dut mode]|Enter dut mode fail
+0x610c4,1,276,DecoderService create fail!|DecoderService
+0x612e4,2,504,Decoder State Error :%d|AudioDecoder init err code = %d|Decodersize set error!!!!!!!|[SONG_INFO]: SampleRate : %6d Hz
+0x614dc,2,2572,Decoder:Resume|Decoder:play stop|FIFO_EMPTY Cnt = %d|END SONG FOR DECODER TIMEOUT|PlayTime = %d|SONG FF END; Play next song.|MSG_TASK_STOP|backward to 0; then pause the player
+0x61f80,1,132,DeviceService|DeviceService create fail!
+0x6206c,1,1652,task name:%s|exception num = %d|Error Type:
+0x62c24,1,536,%d sectors read timeout|1 sector read timeout
+0x62e3c,1,800,%d sectors write timeout|1 sector write timeout
+0x6315c,4,136,Pocket Master|Sonicake|Pocket Master MIDI|Pocket Master Audio|20240710
+0x63338,1,404,speaker %d|mic %d
+0x63778,1,12,8.7.1 build @ Apr 29 2025 16:04:02
+0x63dec,2,68,128: 0X|%02X
+0x63e64,3,1492,BLE_STACK_INIT_OK _2024|BLE_STACK_INITING|BLE_STACK_FAILURE: 0x%02x|Central connect: %04x|BLE_STACK_CONNECTED: 0x%04x|random|public|device address: %s; %s|client info:%04x;%04x|client properties:%04x;%04x|BLE_STACK_DISCONNECTED 0x%04x ;reason: 0x%02x|Client Disconnect %d|GATT_SERVER_INDICATION_TIMEOUT|GATT_SERVER_INDICATION_COMPLETE|BLE_CONN_UPDATE_COMPLETE: 0x%04x|conn_intreval:0x%04x;|conn_latency:0x%04x;|supervision_timeout:0x%04x|device id numble: 0x%04x|BLE_ATT_EXCHANGE_MTU_RESPONSE rx_mtu=%d|* service: [0x%04x-0x%04x]; uuid|* characteristic: [0x%04x-0x%04x-0x%04x]; properties 0x%02x; uuid|*CHARACTERISTIC for SERVICE:|%04x|Client connect: %04x|BLE_CLIENT_SEARCH_ALL_COMPLETE|Central Disconnect %d|A2dp stream type:|A2dp Connected : bt address = %02x:%02x:%02x:%02x:%02x:%02x|A2dp disconnect|A2dp streaming...|A2dp suspend|A2dp connect timeout
+0x64474,2,108,bt addr error
+0x644e0,2,76,bt name error
+0x6452c,2,280,**********
+Local Device Infor:|Bt Name:%s|FlashBtAddress(NAP-UAP-LAP):|%02x:|%02x|SystemBtAddress(LAP-UAP-NAP):|BleAddress:|Freq trim:0x%x|**********
+0x64644,1,564,0000|header error|used default trim value; not save to flash|Pocket Master BLE|efuse is null|save bt params to flash|bt database read error!
+0x64904,1,176,ERROR:pin code len %d
+0x649b4,1,72,Bt Stack Init ErrCode [%x]
+0x64a20,1,300,device name set!|save ok!|bt database read error!|save NG!|ERROR: Ram is not enough!
+0x64b4c,2,300,device ble name set!|save ok!|bt database read error!|save NG!|ERROR: Ram is not enough!
+0x64c78,1,192,device TrimValue set!|bt database read error!|save NG!|ERROR: Ram is not enough!
+0x64db8,1,700,attrId:%x;|scan:%x|Avrcp Connected : bt address = %02x:%02x:%02x:%02x:%02x:%02x|A2DP Play State [%d]|BTVOL_CHANGE = [%d]|EQ:%x|repeat:%x|shuffle:%x
+0x65208,1,648,Addr write Offset = %x|flash erase
+0x65490,1,268,LAST ADDR NOT FOUND|Last device addr:|0x%02x|erase last bt addr area
+0x6559c,2,84,flash erase: bt record
+0x655f0,14,60,read error:params is null
+0x6562c,4,100,write success|write error:%d|write error:params is null
+0x65690,1,756,write success|bt data read error!|write error:%d|write error:params is null|-----------------------------------New0x%lx(%lu)|TOTAL NUM:%d|Update the profile!!!
+0x659cc,3,68,Busy
+0x65a80,1,32,bt connect ctrl
+0x65b6c,10,108,BtStopReconnect
+0x65c7c,1,44,bt disconnect ctrl
+0x65df0,1,428,!!!  lm link used; stop reconnect...|link exist; delay2s reconnect device...|+++ l2cap close channel; delay......|BtReConnect will be started in %d seconds
+0x65f9c,3,1144,Last Addr is NULL|Reconnect:|Remote Device:|%02x:%02x:%02x:%02x:%02x:%02x|nameLen = %d ; name = %s|connect btbox|!!!ERR: BT_STACK_EVENT_COMMON_STACK_FREE_MEM_SIZE|Inquriy Result:|%d dB|extLen = %d ; ext = %s|BT_STACK_EVENT_COMMON_INQUIRY_COMPLETE|BT_STACK_EVENT_COMMON_INQUIRY_CANCELED|mode - %d; addrs -  %02x:%02x:%02x:%02x:%02x:%02x|BT_STACK_EVENT_COMMON_STACK_INITIALIZED|A new device has been added into db : bt address = %02x:%02x:%02x:%02x:%02x:%02x|SIMPLE PAIRING_FAILURE|BT_STACK_EVENT_COMMON_CONNECTION_ABORTED|BT_STACK_EVENT_COMMON_PAGE_TIME_OUT|BB LOST
+0x66da4,2,548,fat err;sect:0|fat err;clst<2
+0x6780c,14,228,Current Task will be deleted
+0x68528,1,104,IDLE
+0x68da8,1,140,IDLE
+0x6ec20,1,186,SEND ERROR
+0x710ec,1,10,0.5.9  build @ May  7 2022 13:59:02
+0x7e05c,1,60,platform_reset! Error= 0x%lx
+0x8122e,2,220,kltb
+0x9647e,1,154,lm_acl_disc:%x
+0x97f2e,3,510,lm link[%d]; state:%d; addr=%02x:%02x:%02x:%02x:%02x:%02x|lm_page_scan_end_ind; link_id%d; addr=%02x:%02x:%02x:%02x:%02x:%02x|BB_create_con_cancel:%d
+0x9819e,1,58,lm_page_scan_stop..
+0x981d8,1,736,lm_page_scan_resume|lm_page_end_ind; link_id%d; addr=%02x:%02x:%02x:%02x:%02x:%02x
+0x9f71a,1,26,adv_scan_state_rest
+0xa000c,7,56,hci_can_send_command_packet_now11
+0xa0540,16,3224,hci_can_send_command_packet_now
+0xa11d8,1,2760,num_cmd_packets: %d|num_cmd_packets11: %d
+0xa24f2,4,24,0123456789ABCDEF
+0xa2586,2,72,00:00:00:00:00:00
+0xa61fa,1,172,btlebt error;need reset
+0xa6a72,2,450,csrk
+0xa957e,1,332,bt error;need reset
+0xa96e0,1,1228,2.8.15_v0.1.12P05_v761_BLE_20241016_9 build @ Apr 14 2025 09:46:34
+0xa9bac,1,562,sink 				a2dp
+0xae6a8,2,3976,0x3fBI-28-C
+0xb0e26,1,510,Repeat|Single|Shuffle|Group|Scan
+0xb6878,2,140,<
+
+
+
+
+@@D
+0xb6d08,1,94,bt stack heap malloc fail|NoOS: stack buffer is NULL
+0xb74aa,83,82,Remove head == NULL|Remove head->Flink == NULL|Remove head->Flink->Flink == NULL|Remove head->Flink->Flink->Blink == NULL
+0xb74fc,110,70,Empty head == NULL|Empty head->Flink == NULL|Empty head->Flink->Flink == NULL|Empty head->Flink->Flink->Blink == NULL
+0xc6b90,2,550,lld_adv_start|lld_adv_start11
+0xc6dde,1,440,lld_scan_start
+0xc6f96,3,52,lld_scan_stop
+0xd310c,1,724,%04X-%04X-%04X;%X|2;1;%X;2;%X|"UTF-8"
+0xd7552,2,1926,llm_common_cmd_complete_send: %d|llm_set_scan_en: %d;%d|llm_set_adv_en: %d
+0xd8126,1,10,1.5.0 build @ Jul 12 2022 08:20:24
+0xdbedc,2,60,; function:|assertion "%s" failed: file "%s"; line %d%s%s
+0xdc384,2,2204,0123456789abcdef|0123456789ABCDEF|hlL|0000000000000000                hlL
