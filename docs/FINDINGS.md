@@ -248,3 +248,15 @@ The image also contains the SDK's tuning-protocol builders: a dense cluster of `
 
 **Pin configuration** (`tools/pinmap.py`, `docs/pinmap_stock_v1.3.3.md`): direct `GPIO_PortAModeSet/PortBModeSet` calls are few (13); the app mostly selects pins through peripheral init calls such as `SPIS_IoConfig(1)` (A20-A23).
 Direct calls found: A0 uart0_rxd_0, A1 uart0_txd_0, B2/B3 mode 5 = FM2R/FM2L (analog line inputs); A7, A9, A16, A17, A22, A24, B2, B3, B5 set to mode 0 (plain GPIO).
+
+## 13. Flash layout vs the BP1048 variants: evidence that c, g, f belong to another device
+
+SDK `app_config.h` lists the chip variants: BP1048A2/B2 = 48-pin, 288 MHz, **16 Mbit (2 MB)** flash; BP1048P2 = 320 MHz, 16 Mbit; BP1048P4 = 320 MHz, **32 Mbit (4 MB)**. The SDK's `flash_config.h` for the 2 MB parts puts
+`CODE_ADDR 0`, `CONST_DATA_ADDR 0x198000`, `AUDIO_EFFECT_ADDR 0x1C8000`, `FLASHFS_ADDR 0x1D0000`, `USER_DATA_ADDR 0x1F0000` (P4 parts add 0x200000).
+
+Stock values: flash-boot header user-data `0xB4 = 0x1F0000`, constant-data boundary `0xB0 = 0x178000`, the Flash Task manages a region at `0x1D0000` in 4 KB sectors. All consistent with a **2 MB** BP1048 flash.
+HTFW segment destinations: `b` at 0, `e` at `0x190000..0x1CD000` fit inside that 2 MB (and below `FLASHFS 0x1D0000`).
+`c` at `0x200000`, `g` at `0x240000`, `f` at `0x280000` do not: they are **above 2 MB**.
+**Inference (not proven):** `b` and `e` are the BP1048's own code and effect data; `c` (Thumb code, no peripheral accesses), `g` (float tables) and `f` (cab/IR name table, settings) are addressed in the **second processor's flash/address space** and presumably forwarded to it by the BP1048-side updater over the SPI/UART links.
+Alternative explanations still open: a BP1048P4 (4 MB) used with its own non-default layout, or an external SPI flash. The stock `0xB4 = 0x1F0000` argues against a P4 layout (which would use `0x3F0000`).
+The effect handling visible on the BP1048 side (DRUM Audio task, drum/aux effects from the SDK's effect library, empty effect table) is consistent with it *not* doing the amp/IR modelling.
