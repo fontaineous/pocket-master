@@ -223,3 +223,28 @@ BFD relaxation assertions on unresolved symbols while building the reference, so
 - Context object (0x50 bytes, `0x51ee0`): 16-entry queue of 2-byte messages; **44,100** stored as the rate; RX and TX ring buffers (SDK circular buffers) of configurable size; accessors convert bytes to frames with `>>2`, i.e. **16-bit stereo, 4 bytes/frame**.
 - Task body (`0x51ce8`): waits on its queue; on message type 2 (DMA block done) it posts message `0xE02` to the application queue passed at creation. It is an event bridge; the audio is moved by DMA plus ring buffers.
 Conclusion: the BP1048-class chip exchanges **stereo PCM at 44.1 kHz with another processor over SPI (it is the slave)**. This fits a separate DSP/MCU doing the heavy audio processing. Which chip the master is remains unknown; probing A20–A23 (BP1048 pins per its datasheet) would show it.
+
+## 12. Tasks, UART link and pin configuration (autonomous pass, continued)
+
+**Bug note.** Several early scans missed 16-bit instructions (`movi55 $r4, #2` prints with a space, 32-bit forms with a tab); fixed in `tools/pinmap.py`, `tools/periph.py`, `tools/tasks.py`.
+
+**FreeRTOS tasks** (`tools/tasks.py`; `xTaskCreate` found by behaviour at runtime `0x681e4`, 16 call sites; table in `docs/tasks_stock_v1.3.3.md`):
+
+| task | entry | stack (words) | prio | origin |
+|---|---|---|---|---|
+| Uart DMA Rx | 0x15598 | 256 | 2 | manufacturer |
+| GUI_MAIN_TASK (3 creation sites) | 0x2c46c / 0x2c4b0 / 0x2c414 | 2560 | 1 | manufacturer (GUI library) |
+| DRUM Audio task | 0x51334 | 512 | 3 | manufacturer |
+| Flash Task | 0x51aa8 | 1024 | 1 | manufacturer |
+| User Msg Task | 0x51c8c | 256 | 2 | manufacturer |
+| SPIS Audio task | 0x51ce8 | 1024 | 2 | manufacturer |
+| MainApp, BtStack, AudioCoreService, DecoderService, DeviceService, BtAudioPlay, WaitingPlay | | | 3-5 | SDK (`bt_audio_app`) |
+So this chip runs **the display GUI, a drum machine, Bluetooth/USB audio and UI messaging**; the SPI-slave audio link (section 11) connects it to a second processor.
+
+**UART0 link** (runtime `0x51008` setup, task `0x15598`): pins **A0 = UART0 RX (mode 2), A1 = UART0 TX (mode 12)**, **460,800 baud, 8N1**, DMA circular receive (peripheral id 5) with a 512-byte buffer, TX by DMA block (id 12).
+The receive task cuts the stream into packets: 12 slots of 0x204 bytes (4-byte header + up to 508 payload bytes).
+The image also contains the SDK's tuning-protocol builders: a dense cluster of `0xA5`,`0x5A` frame-header stores between runtime `0x58708` and `0x5a704`
+(SDK `audio/communication.c`: frames `A5 5A | cmd | len | payload | 16`, effect parameters from `gCtrlVars`). Not proven: whether UART0 carries that protocol to a PC tool or to the other processor.
+
+**Pin configuration** (`tools/pinmap.py`, `docs/pinmap_stock_v1.3.3.md`): direct `GPIO_PortAModeSet/PortBModeSet` calls are few (13); the app mostly selects pins through peripheral init calls such as `SPIS_IoConfig(1)` (A20-A23).
+Direct calls found: A0 uart0_rxd_0, A1 uart0_txd_0, B2/B3 mode 5 = FM2R/FM2L (analog line inputs); A7, A9, A16, A17, A22, A24, B2, B3, B5 set to mode 0 (plain GPIO).
