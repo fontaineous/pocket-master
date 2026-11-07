@@ -499,3 +499,11 @@ Secondary sources only (distributor listings, press summaries); datasheets for L
 | Nuvoton M480 | not found (QFN is 33-pin; otherwise LQFP) | 192 MHz exact | 256/512 KB | 160 KB total: too small | contradicted (section 22) |
 | Levetop LT32U03 | listed (QFN 48/68, LQFP100) | 150 MHz per brochure | 508 KB (matches the firmware's flash end 0x7f000) | 256 KB: fits | unverified |
 Notes: Nuvoton is a Taiwanese company. The firmware's 192/96/64 MHz table is not proven to be the CPU clock. To resolve: obtain the LT32U03 datasheet/reference manual and compare its DMA and GPIO register layouts with sections 24 and 25.
+
+## 27. Artery AT32F455/456 facts (192 MHz parts) and the jlcsearch attempt
+
+- jlcsearch.tscircuit.com was requested as a parts-search tool (QFN-68, Cortex-M4/M4F, ~192 MHz, general purpose). It is **not reachable from this session** (shell: HTTP CONNECT 403; web-fetch agent: DNS failure), i.e. outside the allowed network domains; no results were obtained or invented.
+- Web search leads: **Artery AT32F455 / AT32F456: Cortex-M4F at 192 MHz, 512 KB flash, 144 KB SRAM (AT32F456 page: 128+16 KB), QSPI and an SDRAM-capable external memory controller; AT32F456 packages LQFP100/LQFP144**; AT32M412/M416 (motor line) are also listed at 192 MHz / 512 KB. Packages of F455 not confirmed. Other 68-pin QFN Cortex-M4 hits were non-Chinese (Infineon CY8C6xxx, Maxim MAX32626).
+- AT32F455 GCC linker scripts (`libraries/cmsis/cm4/device_support/startup/gcc/linker/AT32F455xE_FLASH.ld`): flash `0x08000000` 512 KB; **RAM `0x20000000`, 144 KB** (`_estack = 0x20024000`); comment about external memory banks when SDRAM is used. No RAM at `0x10000000` or `0x28000000`.
+- Fit with the firmware: frequency (192 MHz exact), flash (regions end `0x7f000`, 4 KB under 512 KB) and external SDRAM support fit; **total internal RAM 144 KB is less than the firmware's use (128 KB at `0x10000000` + >= 28 KB at `0x20000000` + 32 KB at `0x28000000`)**, the peripheral/DMA register behaviour contradicts (sections 24, 25), and a QFN-68 package is unconfirmed.
+- To resolve: allow jlcsearch.tscircuit.com (Network access > Allowed domains), or provide the AT32F455/456 reference manual memory map and package list.
