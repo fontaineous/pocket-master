@@ -691,3 +691,18 @@ Details of the buffer layout are in `docs/looper_notes.md`. New here:
   constant bytes). **Not tested on hardware.** Open risks: (1) the size of the memory at 0x29000000 is unknown (120 s needs 5.29 MB);
   (2) the header word at offset 4 is copied unchanged and it is not known whether the updater checks it (its value differs between the three
   images but is not a plain sum or CRC of anything tried); (3) the loop zero-fill at start-up takes longer.
+
+## 35. Board observations from the owner (not derived from the firmware)
+
+- The external RAM is a **Winbond W9864G6KH**: 64 Mbit (8 MB, 4M x 16) SDRAM, 166 MHz, 54-pin TSOP-II. Found under another part.
+  A 16-bit SDRAM needs about 38 signal pins (A0-A11, BA0-1, DQ0-15, CLK, CKE, CS, RAS, CAS, WE, LDQM, UDQM), so it cannot hang off the
+  BP1048 (28 GPIO, no external memory bus). It is attached to the other processor, which therefore has a parallel SDRAM controller.
+  Open question: the package count of that chip (a 68-pin QFN would be unusual for a 16-bit SDRAM bus); to be confirmed by counting pins and
+  tracing the SDRAM clock/CS to the chip.
+- The loop buffer (0x29000000, 882,048 bytes today) therefore lives in an 8 MB device. A 120 s loop at 22.05 kHz mono is 5.29 MB. How the
+  rest of the 8 MB is used (heap, delay and reverb buffers, module data) and where the SDRAM is mapped is not known.
+- The 5-pin 0.1" header (pin 1 GND, pin 5 3.3 V, pins 2-4 pulled up through about 15 kohm) was traced by the owner to the second processor.
+  An SWD attempt with an ST-LINK (Nucleo, CN2 jumpers removed) did not connect with pin pairs from pins 2-4 and no reset line. A first
+  attempt with the jumpers left in connected to the Nucleo's own STM32F303 (device ID 0x446) and tells nothing about the pedal.
+- The SOIC-8 part near the BP1048 is probably a battery controller, not a SPI NOR. No NOR flash was found. The CFW manual's advice to dump
+  the flash with a CH341A and SOP-8 clip is therefore not understood and may not apply to this board.
