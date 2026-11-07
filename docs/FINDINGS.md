@@ -333,3 +333,35 @@ This image is **not** flash-ready or device-compatible: it is the SDK's referenc
   Group 5 holds three identical blobs. Group 10 holds a raw code blob (`push {r4,lr}` ...) plus a 20-byte stub.
 - The host `c` references fixed addresses inside the slots (`0x100037b4`, `0x10003d58/5c`, `0x100074dc`, `0x10007cdc/ce0`), i.e. it reads/writes module state or parameters in place.
 Interpretation (inferred): the signal chain is built from slots; selecting an effect/amp/cab means copying that module from `g` (in flash) into its slot and calling its entry points. The HTFW's 20 to 25 IR/cab slots (`f`) and presets (`e`) select among these.
+
+## 17. The Cortex-M host and its DSP modules: how the pieces fit
+
+### 17.1 Host RAM image (`tools/c_unpack.py`, `tools/c_disasm.py`)
+- RAM `0x20000000..0x218c` (copied by the scatter loader): first **40 ten-byte veneers** (`movw ip,#lo; movt ip,#hi; bx ip`) at `0x20000000 + 10*n`, each jumping to a flash function (`0x4a91`, `0x89cd`, `0x9a6d`, `0x69b1`, ...): a fixed-address entry table.
+  No module calls these veneers directly (they are ~256 MB away from `0x1000xxxx`, out of `bl` range), so module-to-host calls must go through function pointers.
+- Real RAM code starts at `0x20000190`. It holds: the ISR bodies the vector stubs tail-call (`0x20000191`, `0x200019a9`, `0x20001b69`, `0x20001e09`, ...), and routines that program a controller at **`0x40050000`**
+  (4-word command writes to `+0x0..+0xC`, source/length at `+0x30`/`+0x34`, timeout-polling helper `0x2000077c`) and use windows at **`0x28000000`/`0x28008000`**.
+  These look like a flash or memory-controller driver running from RAM (necessary when reprogramming the memory you execute from). **Inferred, not proven.**
+- IRQ5/6 and IRQ7/8 stubs test two callback slots at `0x200047c0`/`0x200047c4` and tail-call RAM handlers; SysTick increments a counter at `0x20002344`.
+- `0xE0001000` (DWT) is used at `0x20001f90` and `0x20001fa8`: cycle counting, i.e. DSP load measurement.
+
+### 17.2 Module library (segment `g`) facts
+- 88 modules, **single-precision float code only** (no `f64` instructions in any module); a few have DSP-extension SIMD instructions.
+- **Group 6 (17 modules, slot `0x10009000`) is group 1 (15 modules, slot `0x10001000`) relinked at another address**: matched pairs differ in only 0.7-3.2% of bytes (absolute addresses); group 6 adds three modules of its own, and one group-1 module (5,088 B) has no same-size partner.
+  So there are **two parallel effect slots sharing one effect library**. Group 5 is three same-size, same-instruction-count variants (not byte-identical).
+- Groups 3 and 9 share slot `0x10003800` (22 + 1 alternatives, up to 12 KB each; two of them make 273 and 179 calls, so they lean on helper routines). Group 8 is ten ~250-byte stubs at `0x10018400`. Group 10 is a resident ~8 KB library (490 VFP ops) with entry points `0x10018dfd` and `0x10019435`.
+- Constants: **44100** is the only sample-rate constant (host and 12 modules); no 48000. `1/32768` and `32768` (int16 to float and back), `1/sqrt(2)` x33, `2*pi` x6, `pi`, `pi/2`.
+  This matches the **0xAC44 (44,100)** stored by the BP1048's SPI-audio context: both chips run at 44.1 kHz with 16-bit samples.
+
+### 17.3 Whole-system picture (evidence level in brackets)
+```
+ USB / Bluetooth / UI / display / drum machine / flash UI settings      <- BP1048-class SoC, NDS32 (segments b, e) [proved]
+        |  SPI (SoC is slave: A20 MOSI, A21 CLK, A22 MISO, A23 CS), 16-bit stereo, 44.1 kHz, 512-B DMA blocks   [proved on SoC side]
+        |  UART0 A0/A1 460,800 8N1, framed packets (control/tuning protocol?)                                   [proved on SoC side; peer unknown]
+        v
+ Cortex-M (FPU, 128 KB RAM at 0x10000000, 881 KB zeroed buffer at 0x29000000, DWT profiling)  <- segment c host (Keil, linked at 0x4000)   [proved: image; chip identity unknown]
+        loads overlay modules from segment g into 9 RAM slots, converts int16 <-> float32, runs the float DSP chain                           [inferred from structure]
+```
+### 17.4 Memory-map fingerprint to identify the Cortex-M part from datasheets
+SRAM: `0x20000000` (at least `0x6ae8` up to the initial SP) and about **128 KB at `0x10000000`**; a **0x29000000** window with >= 881 KB used as zeroed buffers; **0x28000000/0x28008000** used by RAM routines;
+peripheral pages `0x40005000`, `0x4000B000`, `0x4000C000`, `0x4000E000`, `0x40011000` (regs `+8`,`+0xC`), `0x40020000`, `0x40030000`, `0x40050000` (command-style block); Keil toolchain; VTOR relocated to `0x4400` (image at `0x4000`); FPv4-SP + DSP extension; DWT present.
