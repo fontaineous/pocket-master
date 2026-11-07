@@ -551,3 +551,54 @@ usage disagrees with them. Together with the M480 result in section 26 this
 leaves the host M4 as an undocumented or custom-peripheral part.
 Cross-checking this against the 0x4000B000 serial instances would still be
 the next useful comparison.
+
+## 30. Serial instances and DMA descriptors (tools/serial_dma_trace.py)
+
+The generic driver (`SerialDma_Init` flash 0x9900, `SerialDma_Start` 0x99e8, both with n < 3 else fault at 0x47ce) was run
+unmodified in the emulator and every peripheral write was logged.
+
+**Only instance 1 (0x4000C000) is ever used.** Instances 0 (0x4000B000) and 2 (0x4000D000) are never initialised. Both the
+Init caller (board init 0x5b9c-0x5bbc: `Init(1, {rx=0x200023bc, tx=0x200027bc, len=0x200})`) and the Start caller (block
+callback 0x5a14-0x5aa0: `Start(1, rx=0x1001fc00, tx=0x1001fe00, len=0x200)`) pass n = 1. This is the 512-byte full-duplex
+audio link to the BP1048 SPIS port (section 17): the 512 B block size and the full-duplex DMA pair are the same ones seen from
+the NDS32 side.
+
+DMA controller (0x40020000), as the driver programs it:
+
+| offset | meaning | evidence |
+|---|---|---|
+| +0x20 | status, bit1 = a channel is busy (Start returns early if set) | read at 0x9a06 |
+| +0x24 | global enable (1) | |
+| +0x28 | sync/mask, 0xff | |
+| +0x100 + 0x20*ch | channel registers: +0 control, +4 config, +8 source, +0xc destination, +0x14 count (+0x10 never written) | writes in Init/Start |
+| +0x220 + 4*k | request-ID registers, k = 1 -> 0x224, k = 2 -> 0x228 | Init |
+
+Serial instance n uses request IDs 0x20+2n (TX) and 0x21+2n (RX); for n = 1: 0x22 on `ch1` (memory -> serial) and 0x23 on `ch0`
+(serial -> memory). `ch0` is wired to 0x228 and `ch1` to 0x224.
+
+Channel control words (constants at flash 0xA5A0):
+
+| channel | direction | ctrl | cfg (+4) |
+|---|---|---|---|
+| ch0 | serial -> memory | 0x800200C1 | 0x000014D7 |
+| ch1 | memory -> serial | 0x80020091 | 0x0000324F |
+
+The two ctrl words differ only in bit6 (set for RX) and bit4 (set for TX). Since ch0 has the serial data register as source and
+the buffer as destination, bit4 and bit6 look like source-increment and destination-increment. Bit0 is enable. Bits 7, 17 and 31
+are common to both. The remaining cfg bits are not decoded.
+
+Serial registers (constants at flash 0xA5B0 = {0x000CC110, 0x000003EA, 0, 0x40005000}):
+
+| offset | use |
+|---|---|
+| +0x04 | mode word 0x000CC110 (bits 4, 8, 14, 15, 18, 19). Bit4 is the enable (Init ORs it in). Bit12 (0x1000) is cleared by Start and set by the block callback before it calls Start, so it behaves like a hold/re-arm bit. |
+| +0x08 | transfer length in bytes (0x200). Start writes the same length to the DMA count. |
+| +0x10 | 0x3EA (1002); meaning unknown (timing or divider). |
+
+The block callback (0x5a14) deinterleaves 16-bit samples from the received buffer into two int32 arrays (sample << 16) and the
+difference (A-B)>>1 into the working struct. This was read from the disassembly, not run on real audio.
+
+Reproduce: `python3 tools/serial_dma_trace.py c.bin g.bin ram_20000000.bin`.
+
+Still open: the cfg word bit fields; what 0x3EA configures; whether 0x40005000 (4th word of the serial table, also an unmapped
+address on the AT32 map) is a clock or pin block; and the UART path to the BP1048, which is probably the 0x40011000 block.
