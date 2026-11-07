@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hotone Pocket Master 'HTFW' firmware container: unpack / pack / info.
+"""Sonicake Pocket Master 'HTFW' firmware container: unpack / pack / info.
 
 Layout (all little-endian):
   0x00  "HTFW"
