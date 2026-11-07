@@ -461,3 +461,22 @@ Headers of the Artery families (`ArteryTek/*_Firmware_Library`, `libraries/cmsis
 - `0x40020000` therefore behaves as a **linked-descriptor DMA controller with a request-select register file**, with channel-style blocks at `+0x100`, `+0x120`, ... (0x20 apart; seen at `0x40020100/0x40020120`, `0x40030100..0x40030160` for a second controller).
 This DMA style is not the STM32/AT32 one (per-channel CCR/CNDTR/CPAR/CMAR with a DMAMUX or fixed request map).
 Status of the identity question: still unknown. Constraints so far: Cortex-M4F + DSP extension, 192 MHz / 96 MHz / 64 MHz clock plan, about 508 KB flash (regions end `0x7f000`), RAM windows `0x10000000` (128 KB), `0x20000000`, `0x28000000` (32 KB), external RAM `0x29000000` (>= 881 KB used), the peripheral map above.
+
+## 24. DMA fingerprint and candidate status (what we know, what is ruled out)
+
+**Page-address matching is not a discriminator.** 4 KB-aligned base addresses coincide across many unrelated chips (STM32-style USART/GPIO pages, M480 EMAC/FMC/SDH1, Artery USART5/USART1/GPIOA, Stellaris/nRF52 pages in code searches). Any ranking by pages alone is noise.
+
+**Distinctive fingerprint: the DMA controller at `0x40020000`** (code at host flash `0x9900-0x9a60`), register map as the firmware uses it:
+| offset | use in the firmware | matches (Faraday FTDMAC020 layout) |
+|---|---|---|
+| `+0x20` | bit n read before reconfiguring channel n | CH_BUSY |
+| `+0x24` | written 1 once to enable the controller | main CSR |
+| `+0x28` | written `0xff` | SYNC |
+| `+0x100 + 0x20*n` | channel n blocks (seen `0x40020100`, `0x40020120`) | channel CSR/CFG/SRC/DST/LLP/SIZE |
+| descriptor words (RAM) | `+0` control, `+4` config, `+8` source, `+0xC` destination, `+0x14` size | linked-list descriptor |
+| `+0x224`, `+0x228` | request IDs `0x20+2n` and `0x21+2n` for serial instance n | vendor request-select extension (not in FTDMAC020) |
+A second controller at `0x40030000` has the same channel stride (`+0x100..0x160`). The BP1048's own DMA (NDS32 side, base `0x4000D000`, channels at `+0x20*n`, enable mask at `+0x100`) is a different layout, so the two chips do not share this DMA.
+This DMA style is not the STM32/AT32, GD32 or M480 style. Faraday IP appears in some SoCs, but the one Cortex-M4F hit found by code search, Kneron KL520, was **rejected by the project owner** (and uses a different address style).
+
+**Ruled out / not a fit:** Nuvoton M480, Artery AT32F4xx incl. AT32F455 (section 22, 23), Kneron KL520. **Unverified lead:** Levetop LT32U03 (508 KB flash matches; 150 MHz brochure figure vs the firmware's 192 MHz plan does not).
+**Constraints to match any candidate:** Cortex-M4F + DSP extension; clock plan 192/96/64 MHz; ~508 KB flash; RAM windows `0x10000000` (128 KB), `0x20000000`, `0x28000000` (32 KB), external RAM at `0x29000000` (a pool descriptor stores it as a plain pointer, so its controller is configured elsewhere, probably by the bootloader); three DMA-capable serial instances at `0x4000B000 + n*0x1000`; the DMA map above.
