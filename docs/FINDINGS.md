@@ -308,3 +308,28 @@ Comparison with stock (structural, not byte-level):
 | banner strings (`MVsilicon B1 SDK`, `BtLib Version`, ...) | present | present |
 Interpretation: the stock image is this SDK application (plus manufacturer code and a different configuration/linker script) built by the same flash-boot flow.
 This image is **not** flash-ready or device-compatible: it is the SDK's reference app, lacks the manufacturer's code, has not been wrapped in the HTFW format, and has not been tested on hardware.
+
+## 16. Segment `c` and `g` decoded: a Cortex-M host firmware plus overlay effect modules
+
+(The i.MX RT assumption is dropped: nothing in the data supports it. The processor is "a Cortex-M4-class MCU of unknown vendor".)
+
+### 16.1 Segment `c` (50,748 B) is a Keil/ARMCC image linked at **0x4000**
+- Header (file `0x0-0x400`): `FF*8`, ASCII **`V132`** at +8, `0x4400` at +0xC (the vector-table address); rest zero.
+- Vector table at file `0x400` = address `0x4400`; SP `0x20006ae8`; reset `0x4d91`; most IRQs use the default `b .` handler `0x45f7`; real IRQ handlers at `0x9a91`, `0x9c41`, `0x9c55`, `0x9c69`, `0x9c7d` (20-byte stubs); NMI/HardFault etc. point into **RAM** (`0x20000999`, `0x200008ad`, ...).
+- The link base was found from the default-handler and ISR-stub spacing (`b .` candidates scored by stub similarity); it is consistent with the reset code (`ldr.w sp`, call `0x9aa1`, jump `0x44e1`).
+- `0x9aa0` = CMSIS-style init: sets VTOR (`0xE000ED08`) to `0x4400`, writes AIRCR with key `0x05FA`, loops over all NVIC priority registers.
+- `0x44e0` = Keil `__main` + `__scatterload` with ARM's compressed-data handlers. `tools/c_unpack.py` runs it in an emulator (unicorn) and dumps the RAM image.
+- Scatter-load regions: `0x20000000` size `0x218c` copied from file `0xA3D0` (RAM-resident code: the IRQ vector veneers `movw/movt ip; bx ip` target here); `0x2000218c` size `0x230` decompressed;
+  zero-init: `0x1001f400` (0xc00), `0x200023bc` (0x472c, ends exactly at the initial SP), and **`0x29000000` size `0xd7580` (~881 KB)**, a very large zeroed buffer in a non-SRAM window (external memory? unproven).
+- Constants in flash/RAM code: peripheral pages `0x40005000`, `0x4000b000`, `0x4000c000`, `0x4000e000`, `0x40011000` (+8/+0xC), `0x40020000`, `0x40030000`, `0x40050000`; **`0xE0001000` (DWT, cycle counter)**; a **~128 KB RAM at `0x10000000`** (variables up to `0x10007cdc`, stack-like areas near `0x1001f400-0x1001fe00`).
+  (Many other `0x4xxxxxxx` hits are float constants such as `0x40a00000` = 5.0f and were excluded.)
+
+### 16.2 Segment `g` (299,088 B) is a library of **overlay code modules** for that MCU (`tools/g_modules.py`)
+- Index: `0x1463`, file size, data start `0x1d0`, `0xffffffff`, `0x0b0001ff`, then 11 pointers (`0x40 0x48 0x88 0xac 0x108 0x110 0x120 0x168 0x190 0x1bc 0x1c4`) to group records `[count][offsets]`.
+  **11 groups with 1, 15, 8, 22, 1, 3, 17, 9, 10, 1 and 2 modules (88 blobs).**
+- Module header: `w0` header size (`0x24`/`0x28`), `w1` payload size, `w2` total size, `w3` secondary size/offset, `w4`/`w5` Thumb entry points (`0x1000xxxx|1`), then Thumb code using absolute `0x1000xxxx` addresses.
+  A module holds a pointer to `base + payload` (its own data area), which gives its load base.
+- **Slots in the MCU's `0x10000000` RAM** (modules of one group are alternatives for one slot): `0x10000000` (g0), `0x10001000` (g1), `0x10002800` (g2), `0x10003800` (g3 and g9), `0x10006400` (g4), `0x10007c00` (g5), `0x10009000` (g6), `0x1000c000` (g7), `0x10018400` (g8).
+  Group 5 holds three identical blobs. Group 10 holds a raw code blob (`push {r4,lr}` ...) plus a 20-byte stub.
+- The host `c` references fixed addresses inside the slots (`0x100037b4`, `0x10003d58/5c`, `0x100074dc`, `0x10007cdc/ce0`), i.e. it reads/writes module state or parameters in place.
+Interpretation (inferred): the signal chain is built from slots; selecting an effect/amp/cab means copying that module from `g` (in flash) into its slot and calling its entry points. The HTFW's 20 to 25 IR/cab slots (`f`) and presets (`e`) select among these.
