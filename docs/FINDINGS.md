@@ -379,3 +379,34 @@ Consistency with the firmware evidence (what fits, what does not, what is unknow
 - No SDK or Keil device pack is known; the image was built with Keil/ARMCC, so a vendor Keil pack may exist (unchecked).
 
 To verify: provide the LT32U03 datasheet / reference manual (a PDF in this repo or the three LCSC hosts allowed in the session network settings), then compare its memory map and peripheral base addresses with section 17.4.
+
+## 19. Module loader, module ABI and the M4's flash map (reverse engineered from the host)
+
+### 19.1 Flash map of the Cortex-M part (addresses in its own flash space)
+| address | content | evidence |
+|---|---|---|
+| `0x0000-0x3fff` | not in the update (bootloader?) | image linked at `0x4000` |
+| `0x4000-0x1063c` | segment `c` (host firmware) | link base |
+| **`0x13000`** | **segment `g`** (module library) | `AppInit` (`0x9edc`) calls `ModuleLib_Install(0x13000)` |
+| `0x65000` size `0x8000`, sector `0x1000` | storage region (32 KB; same size as segment `f`) | `AppInit` region setup (`bl 0x83a4`) |
+| `0x6d000` size `0xa000` | storage region (40 KB) | `AppInit` (`bl 0x6f5c`) |
+| `0x77000` size `0x8000`, sector `0x1000` | storage region (32 KB), **ends at `0x7f000` = 520,192 B = 508 KB** | `AppInit` |
+So the HTFW destinations of `c`/`g`/`f` (`0x200000`, `0x240000`, `0x280000`) are package partition addresses, not these addresses. The 508 KB flash size matches the Levetop LT32U03 (section 18); the 192/96/64 MHz clock table (`0x2000235c`) does not match its 150 MHz brochure figure.
+
+### 19.2 RAM map seen from the host
+`0x10000000-0x1001f3ff` module slots + resident library; `0x1001f400-0x1001ffff` stacks; `0x20000000` host SRAM (RAM code, data, BSS to the initial SP `0x20006ae8`); **`0x28000000-0x28007fff` 32 KB data windows for the slots** (carved sequentially, ends at `0x28008000`);
+**`0x29000000` external RAM** (a self-test at `0x6c44` writes/reads 200-byte blocks there and counts mismatches; the 881 KB zero-init region is variables placed in it).
+Central application state block: **`0x20002af4`** (+`0x171+slot` selected index, +`0x185` slot count, +`0x196+slot` copy of selection, +`0x2e0-0x2e4` flags/pointers, +`0x2f8/0x2fc` floats).
+
+### 19.3 Slot descriptor table (RW data at `0x200021a4`, pointer list at `0x200022f4`)
+Two 16-byte descriptors per slot. First: `{code base (0x1000xxxx), code size, data window (0x2800xxxx), data size}`; second: `{end of slot (= base + size), 0, 0, 0}` (runtime fields).
+Slots: 0 `0x10000000` (0x1000); 1 `0x10001000` (0x1800); 2 `0x10002800` (0x1000, data `0x28004000` size 0x1400); 3 `0x10003800` (0x2c00, data `0x28005400` size 0x1800); 4 `0x10006400` (0x1800, data `0x28006c00` size 0xc00); 5 `0x10007c00` (0x1400, data `0x28007800` size 0x800); `0x10009000` (0x3000); `0x1000c000` (0xc400); `0x10018400` (0x7000); `0x10018800` (0x6c00 = resident library).
+
+### 19.4 Library installer and module loader
+- **`0x4e18` ModuleLib_Install(g)**: zero the 11-entry loaded-module table (`0x2000382c`); require group count (`g[0x13]`) <= 11; malloc (`0x4634`) an index object stored at `*0x20002350`, copying the `g` header; for each group allocate `4+4*count` bytes, store the count and the **absolute module pointers `g + offset`**.
+- **`0x4ec4` GroupCount(slot)**, **`0x4f60` SlotCount()**.
+- **`0x4ee4` LoadModule(slot, index, desc)**: clamp index to the group count (else 0); take the module pointer; clear and copy **payload to the slot base** (`src = module + w0`, length `w1`, so the header is *not* copied); if the descriptor's data size is non-zero, clear the data window and copy **`w3` bytes found at `module + w2`** (the initialised-data block) into it; remember the module pointer in `loaded[slot]` (`0x2000382c + 4*slot`).
+  Blob layout, verified on all 87 modules: `blob = header (w0) + code payload (w1) + data block (w3)`, `w2 = w0 + w1`. Module state starts right after the payload (`base + w1`).
+- **`0x4f6c` module call (set params)**: `loaded[slot][+0x10]` (header `w4`, "entry1") with `r0 = args[0]`. **`0x4f90` module call (process)**: `loaded[slot][+0x14]` (`w5`, "entry2") with `r0 = args[0], r1 = u16 args[8], r2 = args[0xc], r3 = args[4]` and three stack arguments `&args[0x10]`, `&args[0x14]`, `&args[0x18]`.
+- Modules reach the resident library (loaded at `0x10018800`) through two function pointers at `0x10018800` and `0x10018804` (`bx r2` / `blx r4`). Library export A (offset `0x5fc`) builds its working structures in the library's own RAM (it never touches the 881 KB pool); B is at `0xc34`.
+Correction: earlier notes treated the module header as part of the loaded image; it is not, and entry offsets are relative to `base + (entry - base)` as linked (payload starts at the slot base).
