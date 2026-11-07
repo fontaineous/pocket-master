@@ -670,3 +670,24 @@ section 30. The first part of 0x5cec is a struct clear, not a pin-mux function.
 Consequence for chip identification: this is a Cortex-M4 whose program memory is a 512 KB SPI-NOR style device driven by a command controller
 at 0x40050000, with PLL words at 0x4000E054-5C and an AF-per-pin controller at 0x40011018-0x40011024. These are three unusual register layouts to search for in
 vendor documentation (an SPI-NOR flash in package or on die). The DMA controller layout (section 30) remains the other.
+
+## 34. Looper: end-to-end simulation and an experimental longer-loop patch (tools/looper_sim.py, tools/patch_looper.py)
+
+Details of the buffer layout are in `docs/looper_notes.md`. New here:
+
+- **The stock limit is 20 s** (confirmed by the owner: the pedal records in mode 1 = 22.05 kHz mono).
+- **Mode fields.** The block function 0x8b8c calls the state machine 0x8fec each block. That machine compares the half-word at state+4
+  (requested: mode byte, second byte) with the half-word at state+8 (active). If they differ it sets the "clear loop" bit and erases the loop
+  every block. Anything driving the looper must keep +4/+5 equal to +8/+9. Which code writes them was not found (the init routine writes only +4=1, +5=0; they probably come from the other chip).
+  The block function also drops the audio (zero output) unless the byte at +9 equals its fourth argument.
+- **Record ends** when `length - pos <= mode*frames` (length starts at the capacity constant). The state machine then sets the end bit and
+  moves to play; play wraps to 0 at the loop length.
+- **Simulation** (`looper_sim.py`, real code, mode 1): stock capacity 441,024 -> 13,779 blocks = **20.00 s**, loop length 440,896, play wraps correctly.
+  With capacity 2,646,000 -> 82,685 blocks = **120.00 s**, loop length 2,645,888, play wraps correctly. No 16-bit or other overflow.
+- **UI side.** The main chip formats the loop time with "%d.%ds" (seconds and tenths: function around runtime 0x1118c); there is no
+  fixed-width minute field, so 120.0 s is a longer text but not a different format. Label width was not checked.
+- **Patch tool.** `patch_looper.py in.bin out.bin --seconds 120` rewrites the capacity (flash 0x8fd8) and the matching zero-init size
+  (flash 0xe3c8, 2x capacity), recomputes the segment CRC and repacks with htfw.py. On CFW 0.9.4 exactly 8 bytes differ (2 CRC bytes, 3 + 3
+  constant bytes). **Not tested on hardware.** Open risks: (1) the size of the memory at 0x29000000 is unknown (120 s needs 5.29 MB);
+  (2) the header word at offset 4 is copied unchanged and it is not known whether the updater checks it (its value differs between the three
+  images but is not a plain sum or CRC of anything tried); (3) the loop zero-fill at start-up takes longer.
