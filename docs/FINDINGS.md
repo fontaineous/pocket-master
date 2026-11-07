@@ -619,3 +619,25 @@ Addresses below are file offsets in segment b (runtime = file + 0x10000). String
 **What is not known**
 - Whether the closed BLE library itself can hold two LE links, or an LE link next to A2DP (A2DP is classic BR/EDR and is independent of the LE role in principle, but the stock firmware may close central when audio is active: `0x421bc` returns a global byte, gp-41536, that gates the role change at 0x53dc; what sets it is not yet identified).
 - Whether notifications received in central mode are parsed as BLE-MIDI. The handler is the "Receive data type" function; its consumer was not followed.
+
+## 32. Test against the LT32U03 datasheet (LT32U03_DS_V11_ENG.pdf, owner-supplied, on `main`)
+
+Chapter 3 (memory map), chapter 23 (DMAC) and the clock tree (section 4) compared with the Cortex-M host evidence:
+
+| Firmware | LT32U03 | Verdict |
+|---|---|---|
+| SRAM at 0x20000000 (stack 0x20006ae8, copied code/data) | SRAM0-3 at 0x20000000-0x20037FFF, TCM at 0x1FFF8000 | fits |
+| 508 KB flash (storage regions end 0x7f000) | 512 KB EFLASH at 0x08000000, aliased at 0x0 | fits (508 KB is the vendor's quoted figure) |
+| 0x10000000 used as a 128 KB RAM window (ZI at 0x1001f400, module slots) | 0x10000000-0x10FFFFFF is the SPIM1 memory-mapped window (16 MB), and 0x60000000 is a second SPIM1 window | interesting: could be external SPI PSRAM or flash mapped there; not proved |
+| 0x28000000 and 0x29000000 | not in the map | no match |
+| 0x40020000 DMA-like block (busy +0x20, enable +0x24, sync +0x28, channels +0x100+0x20n) | ADC at 0x40020000; DMACs are at 0x40046000/0x40047000, EDMAC at 0x4000A000/0x40039000 | no match |
+| DMAC layout | Synopsys DesignWare style: channel stride 0x58, CFG at +0x40, interrupt status banks from +0x2C0, CHEN at +0x3A0 | differs from the firmware's controller |
+| 0x4000B000+n*0x1000 serial instances, 0x4000C000, 0x4000E000, 0x40030000, 0x40050000 | reserved / LD (0x40030000) / reserved | no match (SPI1-3 are at 0x40010000-0x40012000, SCI1-3 elsewhere) |
+| 0x40011000 pinmux-like block | SPI2 | register use disagrees |
+| 192/96/64 MHz clock table | CORE_CLK max 120 MHz, internal oscillator 120 MHz (marketing text says 150 MHz) | no match |
+
+Conclusion: LT32U03 matches RAM base and flash size but not any peripheral base, the DMA controller layout or the clock rates,
+so it is not the host M4 (unless the peripheral maps differ between silicon revisions, which the datasheet does not suggest).
+Together with sections 26, 27, 29 and the PSoC 6 check, the host is not one of the candidates tried so far.
+The 0x10000000 observation is worth following up: it gives a concrete way for a RAM window at 0x10000000 to exist on a
+Levetop-style part, but it is not enough on its own.
