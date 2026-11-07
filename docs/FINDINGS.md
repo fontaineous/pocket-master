@@ -489,3 +489,13 @@ What the firmware does at the pages that "coincide":
 - **`0x40020000`** (Artery: GPIOA, 0x3c bytes of registers): the firmware uses `+0x20` (busy bit read), `+0x24`, `+0x28`, `+0x100`, `+0x120`, `+0x224`, `+0x228`: far beyond a GPIO block; it is the DMA-style controller of section 24.
 - **`0x4000B000 + n*0x1000`**, **`0x40030000`**, **`0x40050000`**: no Artery peripheral exists there.
 So on an Artery part the firmware would be programming the wrong peripherals at those addresses. Unless the chip is Artery and this segment is not that chip's firmware, the Artery families do not fit. What would change this: an Artery part number read from the board, or an Artery family whose header has a GPIO bank at `0x40011000` and a DMA with `+0x20/+0x24/+0x28` at `0x40020000`.
+
+## 26. Candidate comparison on the owner's criteria (Chinese vendor, QFN-68 package, ~192 MHz)
+
+Secondary sources only (distributor listings, press summaries); datasheets for LT32U03 could not be fetched.
+| candidate | QFN-68 package | ~192 MHz | flash | RAM needed (>= ~188 KB: 128 KB @0x10000000 + >= 28 KB @0x20000000 + 32 KB @0x28000000) | register behaviour |
+|---|---|---|---|---|---|
+| Artery AT32F435/437 | not found (QFN48; LQFP48/64/100/144) | 288 MHz max, 192 MHz possible as a setting | up to MB-class | fits (up to 512 KB) | contradicted (section 25) |
+| Nuvoton M480 | not found (QFN is 33-pin; otherwise LQFP) | 192 MHz exact | 256/512 KB | 160 KB total: too small | contradicted (section 22) |
+| Levetop LT32U03 | listed (QFN 48/68, LQFP100) | 150 MHz per brochure | 508 KB (matches the firmware's flash end 0x7f000) | 256 KB: fits | unverified |
+Notes: Nuvoton is a Taiwanese company. The firmware's 192/96/64 MHz table is not proven to be the CPU clock. To resolve: obtain the LT32U03 datasheet/reference manual and compare its DMA and GPIO register layouts with sections 24 and 25.
