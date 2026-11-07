@@ -480,3 +480,12 @@ This DMA style is not the STM32/AT32, GD32 or M480 style. Faraday IP appears in 
 
 **Ruled out / not a fit:** Nuvoton M480, Artery AT32F4xx incl. AT32F455 (section 22, 23), Kneron KL520. **Unverified lead:** Levetop LT32U03 (508 KB flash matches; 150 MHz brochure figure vs the firmware's 192 MHz plan does not).
 **Constraints to match any candidate:** Cortex-M4F + DSP extension; clock plan 192/96/64 MHz; ~508 KB flash; RAM windows `0x10000000` (128 KB), `0x20000000`, `0x28000000` (32 KB), external RAM at `0x29000000` (a pool descriptor stores it as a plain pointer, so its controller is configured elsewhere, probably by the bootloader); three DMA-capable serial instances at `0x4000B000 + n*0x1000`; the DMA map above.
+
+## 25. Artery AT32F4xx tested by behaviour (contradicted by the firmware's own register use)
+
+Requested focus: Artery. Their headers (AT32F435_437, F45x) have an STM32-F4-style map: UART5/USART5 `0x40005000`, I2C1-3 `0x40005400-0x40005c00`, USART1 `0x40011000`, USART6 `0x40011400`, GPIOA-H `0x40020000-0x40021c00` (0x400 apart), CRC `0x40023000`, CRM `0x40023800`, FLASH_REG `0x40023c00`, (F435/437) EDMA `0x40026000`, DMA1 `0x40026400`, DMA2 `0x40026600` (F45x: DMA1 `0x40026000`, DMA2 `0x40026400`). **Nothing at `0x4000B000-0x4000F000`, `0x40030000` or `0x40050000`.**
+What the firmware does at the pages that "coincide":
+- **`0x40011000`** (Artery: USART1; STM32 USART registers are STS/DT/BAUDR/CTRL1.. at +0..+0x1c): the firmware writes `0x55555555` to `+0x30`, `+0x34` and `+0x6c`, and read-modify-writes `+0x24` setting several 3-bit fields to `4` (`bic 0x70000000/orr 0x40000000`, then the same at bits 24, 16, 20...). That is a **GPIO-style block with alternate-function fields**, not a USART.
+- **`0x40020000`** (Artery: GPIOA, 0x3c bytes of registers): the firmware uses `+0x20` (busy bit read), `+0x24`, `+0x28`, `+0x100`, `+0x120`, `+0x224`, `+0x228`: far beyond a GPIO block; it is the DMA-style controller of section 24.
+- **`0x4000B000 + n*0x1000`**, **`0x40030000`**, **`0x40050000`**: no Artery peripheral exists there.
+So on an Artery part the firmware would be programming the wrong peripherals at those addresses. Unless the chip is Artery and this segment is not that chip's firmware, the Artery families do not fit. What would change this: an Artery part number read from the board, or an Artery family whose header has a GPIO bank at `0x40011000` and a DMA with `+0x20/+0x24/+0x28` at `0x40020000`.
