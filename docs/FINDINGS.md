@@ -436,3 +436,14 @@ Classification here is behavioural and heuristic (level/drive/tone/time); it doe
 - Chain: for each position the order table gives a slot id; slot 9 is skipped; **slot 2 runs a sub-sequence (slots 2, 9, 5 in one mode, four consecutive slots in another)**; after the chain, a post-stage (`0x20001eca`) and the float to int conversion.
 - Emulated whole-engine runs complete without faults (all nine slots are dispatched each block, output buffer written), but **with every context combination tried the module chain was fed silence while the input went to the output through the direct path**, so the engine twin does not yet reproduce the effect chain's audio.
   Open: which flag or handshake routes the input through the chain (candidates: `IO+0x118/0x11c/0x120` gains, `IO+0x12e`, `state[0x2e0-0x2e4]`, the setters at flash `0x5b36` and `0xfd94`).
+
+## 22. Candidate check: Nuvoton NuMicro M480 (NOT a good fit)
+
+Candidate proposed by the project owner (Cortex-M4F with DSP extension, up to 192 MHz, 256/512 KB flash, 96/160 KB SRAM). Checked against the public BSP header (`OpenNuvoton/M480BSP`, `M480.h`), with `tools/addr_fit.py`.
+For: **192 MHz HCLK and 96 MHz PCLK** match the firmware's clock table (`192000000, 96000000, 64000000` at `0x2000235c`); Cortex-M4F with DSP extension; 512 KB flash vs the firmware's flash regions ending at `0x7f000`.
+Against (stronger):
+- **Memory map.** M480 has SRAM only at `0x20000000` (max 160 KB total). The firmware uses at least 128 KB of RAM at `0x10000000`, a 32 KB window at `0x28000000` and external RAM at `0x29000000`; none of these exist in the M480 map.
+- **Peripheral page usage.** The firmware computes `0x4000B000 + n*0x1000` and programs `+0x0/+0x4/+0x8/+0xC` of each page: repeated instances of one peripheral type. In the M480 map those pages are EMAC (`0x4000B000`), FMC (`0x4000C000`), SDH0, SDH1 (`0x4000E000`), i.e. different peripherals.
+  The `0x4000C000` page is written as `reg[+4] |= 0x1000` followed by a PendSV trigger, not as an ISP flash command; `0x40050000` is TIMER0 on M480 but behaves as a descriptor/command block here; `0x40005000`, `0x40011000`, `0x40020000` match no M480 peripheral.
+- No access to the SYS/CLK pages (`0x40000000`, `0x40000200`) that M480 firmware normally touches.
+Conclusion: the 192/96 MHz clock plan is a useful constraint, but the memory and peripheral map do not match the M480. Use `tools/addr_fit.py` with other vendors' CMSIS headers to test further candidates.
