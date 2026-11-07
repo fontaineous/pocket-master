@@ -105,3 +105,28 @@ boundaries come from `jal` targets only, so functions only reached via pointer t
 
 Corrections to earlier statements: the "SIGABRT"/ARM-libc Cortex-M segment `c` has essentially no peripheral register accesses (movw/movt-checked), so
 it is compute-style code loaded into RAM; whether it runs on an i.MX RT or another core is still unknown.
+
+## 7. Public SDK source found: leadercxn/bp1048_sdk_v0.1.12
+
+<https://github.com/leadercxn/bp1048_sdk_v0.1.12> (public; MVsilicon `MVsB1_BT_Audio_SDK_v0.1.12`, release dated 2021-02-08, Chinese/GBK comments).
+It contains: full C sources of `BT_Audio_APP` (`bt_audio_app_src/`: main.c, services/, apps/, display/, device/, startup/, ...),
+`MVsB1_Base_SDK` (drivers, middleware sources, ~40 examples), the linker script/scatter file (`nds32-ae210p.ld/.sag`) and **prebuilt libraries**
+(`libBtStack*.a`, `libAudioDecoderLibrary.a`, `libAudioEffectLibrary.a`, `libDriver.a`, `libfatfs.a`, `libFlashFS.a`, `libreverb_p.a`, `libopus*.a`, ...).
+License: no LICENSE file in the repo; MVsilicon copyright headers say all rights reserved. Check licensing before redistributing anything derived from it (this repo does not copy any of it).
+
+Matches with our stock image:
+- Boot banner ("MVsilicon B1 SDK ... SDK Version: %d.%d.%d"), `Audio Decoder Version`, `BtLib Version`, `Fatfs presearch acc Lib Version`, `bt em size`, `AudioCoreService`, `[BT_OFFSET]` are all in the SDK sources (`main.c`, `services/`).
+- `__nds32__mtsr(0x10000, NDS32_SR_IVB)` in `startup/init-default.c` and `Remap_InitTcm(FLASH_ADDR+0x10000, ...)` in `main.c` explain the +0x10000 runtime base.
+- The flash-boot header the SDK describes at offset 0xB8 matches structured bytes at the start of segment b.
+- Toolchain per the SDK projects: `nds32le-elf-mculib-v3s` (GCC), `-O3`, `-mext-dsp`, chip config `nds32-ae210p`.
+
+NOT in the SDK (so manufacturer additions): `WinManager`/`UserSources`, `dspVer`/`bootVer`, `SPIS Audio task`, `BP10-LYM`, the effect/UI code.
+
+**Endianness correction.** Data in the image is little-endian (44 vs 1 string-pointer hits), matching the SDK's `nds32le` target. NDS32 instruction bytes
+appear in the same order in BE and LE builds, which is why `nds32be-elf-objdump` still decodes the code. Build and link with `nds32le-elf`.
+
+### Evidence for a second processor
+- `0x28358` (a 6 KB UI function) shows `V0.0.02`, `B0.0.02`, `V0.0.01`, `dspVer= %s`, `bootVer= %s`, `Light:%d`, `NR Calibrate Value`: looks like an info screen showing versions of other components.
+- `0x542a4` (`AudioResInit`) creates the **SPI-slave audio task** (`SPIS Audio task` at `0x51f90`); `Uart DMA Rx` at `0x157c8`.
+- Segment `c` is 50 KB of Thumb code with no peripheral register accesses (compute-style, RAM-resident) starting with a `V132` tag, and segment `g` is ~300 KB of float tables.
+Together that fits a separate DSP/MCU doing the heavy audio/IR processing, with the BP1048-class SoC handling Bluetooth/USB/UI. Not yet proved: which chip runs `c`, and how it is loaded.
