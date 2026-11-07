@@ -602,3 +602,20 @@ Reproduce: `python3 tools/serial_dma_trace.py c.bin g.bin ram_20000000.bin`.
 
 Still open: the cfg word bit fields; what 0x3EA configures; whether 0x40005000 (4th word of the serial table; USART5 on the
 AT32 map, which is only an address coincidence) is a clock or pin block; and the UART path to the BP1048, which is probably the 0x40011000 block.
+
+## 31. BLE roles and connection limit (NDS32 side, segment b)
+
+Addresses below are file offsets in segment b (runtime = file + 0x10000). Strings are at runtime 0xdf0ac-0xdf2f0.
+
+**What the stock firmware has**
+- A manufacturer BLE module ("V1.0.01" string, runtime 0xdf068) with a **central role**: scan, a scan-result list (8 entries x 0x28 bytes = 0x140 bytes, cleared by the memset at file 0x4b52, entries added at 0x4d18 with the check `count < 8`), "Open Scan for Connect", "Time Out Close Scan/Connect", "Set Connect 2:%d", a GATT-client receive handler ("Receive data type:%02x size:%d, conHandle valHandle") and a "Has been connected" guard.
+- A **peripheral role** (GATT server, advertising) with the standard BLE-MIDI service UUID 03B80E5A-EDE8-4B33-A751-6CE34EC4C700 in the data at file 0xcf308 (plus the "Pocket Master BLE" name).
+- Role switches `close_role(r)` at 0x4acc ("Close Ble Role %d") and `open_role(r)` at 0x4b00 ("open Ble Role %d"). Both end up in `BleRoleSet(role, enable)` at file 0x8f696 (a library routine), where role 0 is the scan/central side, 1 the peripheral and 2 a second variant. App role 3 is mapped to 0 and also does a `ListMemInit` call (0x91d82).
+
+**Evidence that roles are exclusive in the stock policy**
+- The state machine at 0x52a8-0x5430 always calls `close_role(3)` before `open_role(1)` or `open_role(2)` and clears its connection counters, and `open_role(3)` is preceded by closing the others. State bytes (gp-relative) track the current mode, a target-address word and timeouts (0x542c: 0x2ee1 / 0xfa1 tick limits per mode).
+- The SDK's own `BLE_APP_CONTEXT` has one `ble_device_role` (CENTRAL_DEVICE or PERIPHERAL_DEVICE) per `InitBleStack`, one GATT server profile and a single `BleConnectFlag`. There is no connection-count parameter in the public SDK header `ble_api.h`.
+
+**What is not known**
+- Whether the closed BLE library itself can hold two LE links, or an LE link next to A2DP (A2DP is classic BR/EDR and is independent of the LE role in principle, but the stock firmware may close central when audio is active: `0x421bc` returns a global byte, gp-41536, that gates the role change at 0x53dc; what sets it is not yet identified).
+- Whether notifications received in central mode are parsed as BLE-MIDI. The handler is the "Receive data type" function; its consumer was not followed.
