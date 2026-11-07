@@ -507,3 +507,21 @@ Notes: Nuvoton is a Taiwanese company. The firmware's 192/96/64 MHz table is not
 - AT32F455 GCC linker scripts (`libraries/cmsis/cm4/device_support/startup/gcc/linker/AT32F455xE_FLASH.ld`): flash `0x08000000` 512 KB; **RAM `0x20000000`, 144 KB** (`_estack = 0x20024000`); comment about external memory banks when SDRAM is used. No RAM at `0x10000000` or `0x28000000`.
 - Fit with the firmware: frequency (192 MHz exact), flash (regions end `0x7f000`, 4 KB under 512 KB) and external SDRAM support fit; **total internal RAM 144 KB is less than the firmware's use (128 KB at `0x10000000` + >= 28 KB at `0x20000000` + 32 KB at `0x28000000`)**, the peripheral/DMA register behaviour contradicts (sections 24, 25), and a QFN-68 package is unconfirmed.
 - To resolve: allow jlcsearch.tscircuit.com (Network access > Allowed domains), or provide the AT32F455/456 reference manual memory map and package list.
+
+## 28. Peripheral inventory of the Cortex-M host (tools/periph_scan.py, docs/m4_peripheral_accesses.md)
+
+Static scan of flash code and the RAM-resident code (constants loaded via literals/movw-movt, then `[base,#off]` loads/stores). Roles are inferred from usage, not from a datasheet.
+| page | observed use | confidence |
+|---|---|---|
+| `0xE0001000` DWT | CYCCNT (`+4`) read: CPU-load measurement | certain (Cortex-M standard) |
+| `0xE000E000` SCS | NVIC set-enable/priority (`+0x104`, `+0x420`), ICSR (PendSV trigger), VTOR (`0x4400`), AIRCR, CPACR, DHCSR | certain |
+| `0x4000E000` | init block written by `AppInit` (`+0xC = 0x1fc3f`, six writes to `+0x14`, `+0x1c..+0x30`, `+0x54..+0x5c`); also used by `0x5cec`, `0x87e0` | unknown role; looks like system/clock/reset control (single instance, written once at startup) |
+| `0x40011000` | `+0x30`, `+0x34`, `+0x6c` = `0x55555555`; `+0x24` 3-bit fields set to 4; `+0x18` and `+0x54` read-modify-write: pin/alternate-function configuration | GPIO/pin-mux-like (not a USART) |
+| `0x40020000` | `+0x20` busy bit, `+0x24` enable, `+0x28` sync (`0xff`), `+0x224/+0x228` request IDs, halfword accesses at `+0x136/+0x152`, channel blocks `+0x100+0x20n` | DMA controller (Faraday FTDMAC020-like layout, section 24) |
+| `0x40030000` | `+0x28` written once (`0x8a04`); channel blocks `+0x100..+0x160` seen in the RAM table | second DMA-like controller |
+| `0x4000B000 + n*0x1000` (n = 0..2) | instance registers `+4` (config, bit 4 enable, bit 12), `+8`, `+0x10`; TX/RX DMA programmed with the instance base as the peripheral address (data register at `+0`) | three serial interfaces with DMA (audio or SPI/I2S class) |
+| `0x4000C000` | `+4 |= 0x1000` then PendSV (`0x5a14`) | likely instance n=1 above or a separate enable bit |
+| `0x40050000` | command block: `+0..+0xC` written (4-word command, 6x), `+0x10`, `+0x18` polled (status, 8 reads), `+0x24`, `+0x30` (address) and `+0x34` (length, constant `0x400`) written 8x, `+0x4c = 0x10000`, `+0x04 = 0x7fffc`, `+0x100`; used by RAM-resident routines (`0x200001e4`, `0x2000032c`, `0x20000604`) | flash/serial-memory controller with a command interface (inferred) |
+| `0x50000000` | `+0`, `+4`, `+8` written once by `0x87e0` | unknown |
+| `0x402e0000`, `0x407e0000` | false positives: the "function" `0xdba8` is a data table decoded as code | ignore |
+**Audio:** there is no dedicated I2S, ADC or DAC register block among these. Audio reaches the host through the three DMA-driven serial instances (mono input `int32` buffer at `IO+8`, aux L/R arrays at `0x200025bc`/`0x200026bc`) and leaves as 16-bit stereo at `0x200027bc`; the converters are on the other side of those links (the BP1048-class chip, whose own audio ADC/DAC addresses are visible in its SDK, e.g. DMA at `0x4000D000`).
