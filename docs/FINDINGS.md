@@ -365,3 +365,17 @@ Interpretation (inferred): the signal chain is built from slots; selecting an ef
 ### 17.4 Memory-map fingerprint to identify the Cortex-M part from datasheets
 SRAM: `0x20000000` (at least `0x6ae8` up to the initial SP) and about **128 KB at `0x10000000`**; a **0x29000000** window with >= 881 KB used as zeroed buffers; **0x28000000/0x28008000** used by RAM routines;
 peripheral pages `0x40005000`, `0x4000B000`, `0x4000C000`, `0x4000E000`, `0x40011000` (regs `+8`,`+0xC`), `0x40020000`, `0x40030000`, `0x40050000` (command-style block); Keil toolchain; VTOR relocated to `0x4400` (image at `0x4000`); FPv4-SP + DSP extension; DWT present.
+
+## 18. Candidate identity of the Cortex-M part: Levetop LT32U03 (UNVERIFIED)
+
+Suggested by the project owner (who has seen the board); the owner reports that the SDK is not available. Web search (secondary sources, product listings and a brochure summary; the datasheet PDFs themselves could not be fetched because the LCSC hosts are blocked from this session):
+- Levetop LT32U03A / B / C: Cortex-M4 with single-precision FPU, up to 150 MHz, **508 KB flash, 256 KB SRAM, 8 KB cache**, 3 SPI, 3 UART, I2C, PWM, 12-bit ADC, DAC, USB, AES/DES; packages QFN-48, **QFN-68**, LQFP-100 (LT32U03A is listed as QFN-48, LT32U03C as LQFP-100; B is presumably the QFN-68 part but that was not confirmed).
+
+Consistency with the firmware evidence (what fits, what does not, what is unknown):
+- Fits: Cortex-M4F class core with FPU and DSP extension; DWT use; image size (c 50 KB plus g 299 KB plus others) fits in 508 KB of internal flash; about 128 KB of RAM at `0x10000000` plus RAM at `0x20000000` is plausible within 256 KB total.
+- Needs checking: **the 881 KB zero-initialised region at `0x29000000` exceeds both 256 KB SRAM and 508 KB flash**, so it would have to be external memory (does this part have an external memory interface? the summary lists none) or my reading of that region-table entry is wrong.
+  The `0x28000000` window and the `0x40050000` command-style block (flash/cache controller?) also need the vendor's memory map.
+- Implication if confirmed: `c`/`g`/`f` HTFW destinations (`0x200000`, `0x240000`, `0x280000`) are above the part's flash size, so they are update-package addresses rather than the MCU's own flash addresses.
+- No SDK or Keil device pack is known; the image was built with Keil/ARMCC, so a vendor Keil pack may exist (unchecked).
+
+To verify: provide the LT32U03 datasheet / reference manual (a PDF in this repo or the three LCSC hosts allowed in the session network settings), then compare its memory map and peripheral base addresses with section 17.4.
