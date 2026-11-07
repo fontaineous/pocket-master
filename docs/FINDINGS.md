@@ -206,3 +206,20 @@ The **FreeRTOS heap is `[&_end, SRAM end)`** (`prvInitialiseHeap()` in `rtos_api
 4. No change to the `.data` copy: the blob has no initialised RAM data, so all mutable state starts at zero.
 
 **Modding consequence:** to add code with state, (a) append code after `0x15bb60` (stay under the `0xB0` boundary, see section 9), and (b) either reuse the 1 KB trick (change the two `_end` loads; a larger value works the same way, at the cost of heap) or add a real `.data` image, which would also mean patching the `__c_init` copy size/source.
+
+## 11. SPI-slave link decoded; function naming by signature (autonomous pass)
+
+**Method.** `tools/sigmatch.py` takes Andes-built *linked* reference ELFs, masks address-dependent instruction fields (j/jal, sethi/ori, `$gp`-relative) and
+finds each function in the stock image by byte pattern. Two references: the SDK's own committed `Example_GPIO.adx`, and a whole-archive link of the 18 libraries the
+application links (`Driver sra cec sbcenc VocalCut mp3enc AudioEffectLibrary resampler AudioDecoderLibrary BtStack FlashFS Lrc fatfs RTC cvsd_plc BlueAEC xmauth opus`)
+built with our toolchain. Result: **1,300 addresses named** (`docs/symbols_libs_v1.3.3.csv`; `tools/mksymbols.py`; `tools/annotate.py` prints disassembly with names).
+Ambiguous identical-body functions are listed with all candidate names (e.g. the SPIS/I2C flag-clear one-liners), never guessed.
+Limits: only functions whose compiled bytes equal the reference match (library code only; the manufacturer's code is not in any reference), and our linker printed
+BFD relaxation assertions on unresolved symbols while building the reference, so some library functions will have been missed.
+
+**SPI slave (`SPIS Audio task`, runtime 0x51f90) is an audio link, not flash:**
+- Setup at runtime `0x51d20` calls, in order: `DMA_ChannelAllocTableSet`, `SPIS_IoConfig(1)`, `SPIS_Init(0)`, `DMA_ChannelDisable(0/1)`, `SPIS_DMA_Init(rx,0x200,tx,0x200)`, `SPIS_BlockDMA_Init`, `SPIS_RxDmaModeSet(1)`, then enables the two DMA channels (ids from a config struct).
+- Per the SDK header and example: **port 1 = A20 MOSI, A21 CLK, A22 MISO, A23 CS**; mode 0 = CPOL0/CPHA0; **512-byte DMA blocks**. The chip is the SPI **slave**, so another device is the master and clocks the data.
+- Context object (0x50 bytes, `0x51ee0`): 16-entry queue of 2-byte messages; **44,100** stored as the rate; RX and TX ring buffers (SDK circular buffers) of configurable size; accessors convert bytes to frames with `>>2`, i.e. **16-bit stereo, 4 bytes/frame**.
+- Task body (`0x51ce8`): waits on its queue; on message type 2 (DMA block done) it posts message `0xE02` to the application queue passed at creation. It is an event bridge; the audio is moved by DMA plus ring buffers.
+Conclusion: the BP1048-class chip exchanges **stereo PCM at 44.1 kHz with another processor over SPI (it is the slave)**. This fits a separate DSP/MCU doing the heavy audio processing. Which chip the master is remains unknown; probing A20–A23 (BP1048 pins per its datasheet) would show it.
