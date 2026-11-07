@@ -150,3 +150,38 @@ Check against the SDK's own committed build of the same example (`examples/Examp
 
 Not done / not proven: nothing here was run on hardware; the example's `.bin` has not been wrapped into the HTFW format or compared against how the stock image is laid out
 (flash-boot header at 0xB8, `.sag` memory map, +0x10000 IVB); the Andes `-mext-zol` and DSP library (`-ldsp`) are unavailable, so DSP-heavy SDK libs may need care.
+
+## 9. Stock image map (segment `b`, offsets are file offsets; runtime = +0x10000)
+
+Measured with per-block entropy, disassembly validity (`*unknown*` rate) and call/return density over `tools`' NDS32 disassembly.
+
+| file offset | size | what | evidence |
+|---|---|---|---|
+| `0x000000–0x0000A4` | 164 B | vector table: 41 `j` instructions, reset handler `0x1d28` | disassembly |
+| `0x0000A4–0x000100` | | **flash-boot header** emitted by the SDK's `.stub_section` (see below) | SDK `init-default.c` |
+| `0x000100–~0x0CF000` | ~830 KB | **code** (4,512 `jal` entry points, highest `0xcef30`; <1.3% undecodable, 8–17% call/ret) | |
+| `~0x0CF000–0x100000` | ~200 KB | sparse tables/data (70–80% zero bytes, entropy 1–2, ~1% calls) | |
+| `0x100000–0x130000` | 192 KB | **UI assets**: GIF89a at `0x1054bc` (Photoshop XMP), high-entropy payload in `0x110000–0x120000`; this is the block both CFWs rewrite (~108 KB differs) | signatures, diffs |
+| `0x130000–0x15bb60` | ~175 KB | more data (call/ret ~1%, 18% undecodable): includes the effect-mode table at `0x132748` (blank in stock) | |
+| `0x15bb60–` | | **CFW appended blob** (code placed after the data tail; flash is execute-in-place so this works) | diffs |
+
+Flash-boot header (SDK writes it in `startup/init-default.c`; stock values in the right column):
+
+| offset | SDK source | stock | meaning |
+|---|---|---|---|
+| `0xB0` | `0x100000` | `0x178000` | constant-data boundary (`CONST_DATA_ADDR`-style) |
+| `0xB4` | `0x1D0000` | `0x1F0000` | user data address (matches `USER_DATA_ADDR 0x1F0000` in the SDK's `flash_config.h`) |
+| `0xB8–0xBB` | `01 00 00 01` | `b1 00 00 01` | chip B1X, version bytes |
+| `0xBC` | `FFFFFFFF` (code CRC) | `01 00 00 00` | code CRC placeholder, edited after build |
+| `0xC0` | `0xB0BEBDC9` | `0xB0BEBDC9` | magic (exact match) |
+| `0xC4` | `0x706` | `0x706` | 32 kHz crystal capacitance calibration (exact match) |
+| `0xD4` | `0x03444846` | `FFFFFFFF` | |
+
+The three fields that differ show a post-build packaging step edits this block; which tool, and how `0xBC` is computed, is **unknown**.
+`0xB0` is the most useful number for modding: the code image must stay below the constant-data boundary at flash `0x178000` if that value is an absolute flash address
+(**inferred**; whether `b`'s file offset 0 corresponds to flash 0 or 0x10000 is not settled). Stock `b` ends at `0x15bb60`; CFW0.9.4 ends at `0x167f50`; that leaves about 70 KB below `0x178000` for additions.
+
+Other facts established:
+- The stack-protection bound `0x20003000` and `ivb = 0x10000` in stock equal the SDK source values, so startup code is unmodified SDK code.
+- On-chip RAM starts at `0x20000000`; the SDK's `.sag` puts RW data at `0x20003900`-`0x20004000`.
+- Effect handling (`FUNC_ID_EFFECT_MODE`, runtime `0x57754`) scans a table of 16-byte records at runtime `0x142748` for an id byte (`0xFF` terminates); in stock the table is empty and the string "No Audio effect File load!!!!" covers that case, so effects presumably come from a separately loaded effect file.
