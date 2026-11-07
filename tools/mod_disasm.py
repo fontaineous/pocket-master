@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Disassemble an overlay module extracted by g_modules.py.
 Resolves pc-relative literal loads (decoding likely float constants) and marks entry points.
+(payload = blob[w0 : w0+w1] is mapped at the slot base, as the host loader does)
 usage: mod_disasm.py <module.bin> <slot_base_hex> [--from OFFSET] [--to OFFSET]"""
 import re, struct, sys
 from capstone import *
 path, base = sys.argv[1], int(sys.argv[2], 16)
-b = open(path, 'rb').read()
-lo = int(sys.argv[sys.argv.index('--from') + 1], 16) if '--from' in sys.argv else 0x18
+raw = open(path, 'rb').read()
+_hs, _pl = struct.unpack_from('<2I', raw, 0)
+b = raw[_hs:_hs + _pl]          # the loader copies only the payload to the slot base (header and data block are not part of it)
+lo = int(sys.argv[sys.argv.index('--from') + 1], 16) if '--from' in sys.argv else 0
 hi = int(sys.argv[sys.argv.index('--to') + 1], 16) if '--to' in sys.argv else len(b)
-hs, pl, tot, w3, e1, e2 = struct.unpack_from('<6I', b, 0)
+hs, pl, tot, w3, e1, e2 = struct.unpack_from('<6I', raw, 0)
 print(f'; header: hdr={hs:#x} payload={pl:#x} total={tot:#x} w3={w3:#x} entry1={e1:#x} entry2={e2:#x} base={base:#x}')
 md = Cs(CS_ARCH_ARM, CS_MODE_THUMB | CS_MODE_MCLASS); md.skipdata = True
 def fl(w):

@@ -410,3 +410,29 @@ Slots: 0 `0x10000000` (0x1000); 1 `0x10001000` (0x1800); 2 `0x10002800` (0x1000,
 - **`0x4f6c` module call (set params)**: `loaded[slot][+0x10]` (header `w4`, "entry1") with `r0 = args[0]`. **`0x4f90` module call (process)**: `loaded[slot][+0x14]` (`w5`, "entry2") with `r0 = args[0], r1 = u16 args[8], r2 = args[0xc], r3 = args[4]` and three stack arguments `&args[0x10]`, `&args[0x14]`, `&args[0x18]`.
 - Modules reach the resident library (loaded at `0x10018800`) through two function pointers at `0x10018800` and `0x10018804` (`bx r2` / `blx r4`). Library export A (offset `0x5fc`) builds its working structures in the library's own RAM (it never touches the 881 KB pool); B is at `0xc34`.
 Correction: earlier notes treated the module header as part of the loaded image; it is not, and entry offsets are relative to `base + (entry - base)` as linked (payload starts at the slot base).
+
+## 20. Emulation harness and behavioural results (tools/emu.py, emu_host.py, probe_modules.py, sweep_params.py)
+
+**What exists.** `emu_host.HostMachine` (unicorn, Cortex-M4 model with FPU) maps the host flash (`c` at `0x4000`, `g` at `0x13000`), the RAM image from `c_unpack.py`, the slot RAM (`0x10000000`), the 32 KB data windows (`0x28000000`), the external RAM (`0x29000000`) and peripheral space as plain memory.
+It runs the **real firmware `LoadModule` (`0x4ee4`)** (only `ModuleLib_Install` is reimplemented, because it needs the firmware's heap), then calls each module's `ENTRY1` (set parameters) and `ENTRY2` (process) exactly as the host dispatchers do.
+The resident library is reinstalled after every slot load because the real loader clears the slot-8 range that contains it. All 87 modules load and run without faults.
+
+**Corrections found while building it:** parameters are read from `state + 0x1a0 + 0x20*slot` (8 floats; the host also keeps a copy at `+0x30`); the module header is not loaded; `GetEnable(slot)` is bit `slot` of `state+0x188`; chain order bytes are at `state+0x18c`.
+
+**Module probe** (`docs/module_probe_params50.md`) and **parameter sweep** (`docs/module_param_sweep.md`), parameters all 50 or varied one at a time over {0,1,25,50,100} (ranges are a guess; the real knob scale is unknown):
+- **Slot 1 (15 modules) and slot 6 (17 modules, the same library relinked plus 3 extra):** these are the true audio effects. Each has between 1 and 6 parameters that change the signal. Behaviour classes seen: saturating modules whose gain falls with level (e.g. slot 1 idx 0/1: output pinned near a fixed RMS, i.e. drive/limiter), linear modules with tails (EQ-, filter- or modulation-like), a comb/echo-like one (idx 10: peak at 44 samples, 20 echo peaks), and a high-frequency-dominant one (idx 14).
+- **Slot 7 (9 modules):** one active parameter (`p0`), near-unity linear behaviour with a `level`/`time` dependence.
+- **Slot 8 (10 small modules, ~250 B):** near-unity gain with very long low-energy tails, 0-3 parameters: shelving/EQ-like.
+- **Slots 0, 2, 3, 4, 5 (1+8+22+1+3 modules):** `ENTRY2` is exact pass-through and no parameter has any effect on the audio. For slot 3 the process entry only latches scaled parameters into a data window (`0x28001108`) and sets a flag, so these modules appear to **supply parameters/coefficient tables to engine code that runs elsewhere** (the host's RAM engine reads module state at fixed addresses such as `0x10003d5c`). Their large payloads are probably the model data.
+Classification here is behavioural and heuristic (level/drive/tone/time); it does not name the effects.
+
+## 21. The block audio engine in RAM (`0x200009a1`): what is known
+
+- One call processes a **64-frame block**; the engine measures itself with SysTick (`0x9a6c`). Scaling: **input int32 samples are left-aligned (`1.0` = 2^31)**; with that scaling the direct path is exactly unity gain; output is **16-bit stereo, 256 bytes at `0x200027bc`** (`0x200028bc` receives a copy).
+- Context struct `IO = 0x200029bc`: mono input `int32[64]` at `IO+8` (alternate mode: pointers at `IO+0/+4`, output pointers at `IO+0x108/+0x10c`); aux/second source arrays at `0x200025bc` (L) and `0x200026bc` (R); gains smoothed per block (step 0.01 for `IO+0x110/+0x124`; 1/128 of the error per block for `IO+0x114` toward `IO+0x128`); flags `IO+0x12c/0x12d/0x12e/0x12f`.
+  `IO+0x12d` must be 1 for the module chain to run, and the engine **clears `IO+0x12d`/`0x12e` at the end of each block** (re-arm before every call).
+- Mode selectors read from the state block: `state[0x30c]` (input mode), `state[0x170]` (variant 1-3), `state[1]` (second source), `state[0x185]` (slot count), `state[0x188]` (enable bits).
+- Constants in the prologue: `1/128`, `0.01`, `2.1`, `1/64`, input scale about `1.02e-9` (about 2^-30), output scale about `9.8e8` (about 2^30), `0.1`, `10.01`.
+- Chain: for each position the order table gives a slot id; slot 9 is skipped; **slot 2 runs a sub-sequence (slots 2, 9, 5 in one mode, four consecutive slots in another)**; after the chain, a post-stage (`0x20001eca`) and the float to int conversion.
+- Emulated whole-engine runs complete without faults (all nine slots are dispatched each block, output buffer written), but **with every context combination tried the module chain was fed silence while the input went to the output through the direct path**, so the engine twin does not yet reproduce the effect chain's audio.
+  Open: which flag or handshake routes the input through the chain (candidates: `IO+0x118/0x11c/0x120` gains, `IO+0x12e`, `state[0x2e0-0x2e4]`, the setters at flash `0x5b36` and `0xfd94`).

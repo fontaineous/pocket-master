@@ -42,7 +42,7 @@ class Machine:
     def readf(self, a, n=1): return list(struct.unpack('<%df' % n, bytes(self.uc.mem_read(a, 4 * n))))
     def write32(self, a, v): self.uc.mem_write(a, struct.pack('<I', v & 0xffffffff))
     def writef(self, a, vals): self.uc.mem_write(a, struct.pack('<%df' % len(vals), *vals))
-    def call(self, addr, args=(), max_insns=20_000_000, trace_writes=None, sp=None, stack_args=()):
+    def call(self, addr, args=(), max_insns=20_000_000, trace_writes=None, sp=None, stack_args=(), count_insns=False):
         uc = self.uc
         regs = [UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3]
         for r, v in zip(regs, args): uc.reg_write(r, v & 0xffffffff)
@@ -58,8 +58,9 @@ class Machine:
             def hw(u, access, address, size, value, ud):
                 if lo <= address < hi: self.writes.append((address, size))
             hooks.append(uc.hook_add(UC_HOOK_MEM_WRITE, hw))
-        def hc(u, address, size, ud): self.icount += 1
-        hooks.append(uc.hook_add(UC_HOOK_CODE, hc))
+        if count_insns:
+            def hc(u, address, size, ud): self.icount += 1
+            hooks.append(uc.hook_add(UC_HOOK_CODE, hc))
         try:
             uc.emu_start(addr | 1, SENTINEL, count=max_insns)
             err = None
