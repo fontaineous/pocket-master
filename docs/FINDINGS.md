@@ -641,3 +641,32 @@ so it is not the host M4 (unless the peripheral maps differ between silicon revi
 Together with sections 26, 27, 29 and the PSoC 6 check, the host is not one of the candidates tried so far.
 The 0x10000000 observation is worth following up: it gives a concrete way for a RAM window at 0x10000000 to exist on a
 Levetop-style part, but it is not enough on its own.
+
+## 33. Behavioural decode of the clock, pin-mux and flash-command blocks (tools/pinmux_trace.py)
+
+**Corrections to section 28 (scanner false positives).** `0x402e006c`, `0x407e0078` (function 0xdba8) and `0x50000000` (function 0x87e0) are not
+peripheral accesses: 0xdba8 is a constant table that the linear sweep decoded as code, and 0x87e0 is DSP code whose literals
+were misread. Ignore those rows (and the "unlock key" idea built on them). The 0x4000C000 +0x4 entry is the serial block of
+section 30. The first part of 0x5cec is a struct clear, not a pin-mux function.
+
+**0x4000E000: clock / PLL controller** (function 0x5d48, run unmodified in the emulator):
+- +0x14: write-enable guard (1 while writing, 0 afterwards)
+- +0x54 / +0x58 / +0x5C: three PLL configuration words, 0x03000F00 / 0x0B400000 / 0x03002222 (table at flash 0xA574). They are only rewritten if they differ from what is already there.
+- Sequence: clear bits [1:0] of +0x20 (select the bypass clock), write the three words, set bit0 of +0x54, wait about 0xC6 loop iterations (~600 cycles), clear bit0, wait again, then set bit1 of +0x20 (switch to the PLL).
+- +0x0C = 0x1FC3F (function 0x9edc): peripheral clock-enable mask, bits 0-5 and 10-16.
+- Other +0x1C..+0x30 writes are in the clock tree setup (not yet decoded).
+
+**0x40011000: chip-wide pin controller** (function 0x5DB8):
+- 4-bit alternate-function field per pin, 8 pins per register: +0x18 (pins 0-7) = 0x33333333, +0x1C (8-15) = 0x22222222, +0x20 = 0x00000020, +0x24 (24-31) = 0x44440000.
+- A second bank at +0x58 = 0x22200011 and +0x54 area = 0x00222222.
+- +0x30, +0x34, +0x6C = 0x55555555: 2-bit fields set to 01 for 16 pins each (48 pins), probably pull or drive setting.
+- This fits a package with about 50 GPIO.
+
+**0x40050000: SPI-NOR style flash command engine** (RAM-resident code, executes from RAM because it erases/programs):
+- Registers: +0x00..+0x0C command words, +0x24 status (bit0 = done; helper at RAM 0x2000077C waits with a timeout), +0x30 address/window (written with `0x20000000 | addr`), +0x34 length (0x400 = 1 KB chunk).
+- The command tables at RAM 0x200020C8 use the standard SPI-NOR opcodes: erase 0x20 (4 KB), 0x52 (32 KB), 0xD8 (64 KB), 0x60 (chip erase, size field 0x80000 = 512 KB); and 0x05 (read status), 0x06 (write enable), 0x66 (reset enable), 0x02 / 0x32 / 0x42 (page program variants).
+- Reading: the 508 KB "flash" is NOR behind this engine, not a classic on-chip flash array: 512 KB chip-erase size minus the 4 KB at the end.
+
+Consequence for chip identification: this is a Cortex-M4 whose program memory is a 512 KB SPI-NOR style device driven by a command controller
+at 0x40050000, with PLL words at 0x4000E054-5C and an AF-per-pin controller at 0x40011018-0x40011024. These are three unusual register layouts to search for in
+vendor documentation (an SPI-NOR flash in package or on die). The DMA controller layout (section 30) remains the other.
