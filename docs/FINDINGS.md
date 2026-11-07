@@ -130,3 +130,23 @@ appear in the same order in BE and LE builds, which is why `nds32be-elf-objdump`
 - `0x542a4` (`AudioResInit`) creates the **SPI-slave audio task** (`SPIS Audio task` at `0x51f90`); `Uart DMA Rx` at `0x157c8`.
 - Segment `c` is 50 KB of Thumb code with no peripheral register accesses (compute-style, RAM-resident) starting with a `V132` tag, and segment `g` is ~300 KB of float tables.
 Together that fits a separate DSP/MCU doing the heavy audio/IR processing, with the BP1048-class SoC handling Bluetooth/USB/UI. Not yet proved: which chip runs `c`, and how it is loaded.
+
+## 8. Toolchain built; SDK example compiled (Example_GPIO)
+
+An `nds32le-elf` toolchain (binutils 2.42, GCC 13.3 C-only, newlib 4.4) now builds `Example_GPIO` from the public SDK sources
+(`build/sdk-example/Makefile`, recipe in `tools/build-toolchain.sh`). It links the **prebuilt vendor `libDriver.a`** against our own objects and produces a `.bin`.
+
+Compatibility problems found and fixed (each one would hit anyone using a modern GCC with this SDK):
+1. **ABI.** SDK objects are `ABI2 FP+` with a single-precision FPU (32 SP/16 DP regs). Needs `-mabi=2fp+ -mext-fpu-sp -mconfig-fpu=2`, and libgcc + newlib rebuilt with the same flags, else `ABI version of object files mismatched`.
+2. **Assembler spelling skew.** GCC 13 passes `-mabi=v2fp+`; binutils 2.42 gas only accepts `v2fpp`. One-line alias patch in `tools/binutils-nds32-abi-alias.patch`.
+3. **`-fcommon`.** The SDK headers define variables without `extern`; GCC 10+ defaults to `-fno-common` and reports duplicate definitions.
+4. **libc.** The SDK targets Andes "mculib" (hooks `putchar`/`nds_write`), not newlib; `build/sdk-example/syscalls.c` bridges `_write`/`_sbrk`/etc.
+5. Andes-only flags upstream GCC rejects: `-mext-zol` (zero-overhead loops); `-ldsp`/`-mvh` not used.
+
+Check against the SDK's own committed build of the same example (`examples/Example_GPIO/Debug/`):
+- Same vector-table shape (`48 00 xx xx` jump table), as in the stock firmware.
+- `GPIO_RegOneBitSet` from the prebuilt `libDriver.a` has **identical instructions** in both builds.
+- Ours is bigger: text 40,520 vs 34,044 bytes, data 2,152 vs 1,016 (different compiler, newlib instead of mculib; code generation will differ from Andes's GCC).
+
+Not done / not proven: nothing here was run on hardware; the example's `.bin` has not been wrapped into the HTFW format or compared against how the stock image is laid out
+(flash-boot header at 0xB8, `.sag` memory map, +0x10000 IVB); the Andes `-mext-zol` and DSP library (`-ldsp`) are unavailable, so DSP-heavy SDK libs may need care.

@@ -1,0 +1,11 @@
+--- /tmp/claude-0/-home-user-pocket-master/10edb96f-22db-5d0e-94b8-ae0fb4d45cdd/scratchpad/tc/../tc-nds32.c.orig	2026-11-07 13:59:56.127331430 +0000
++++ gas/config/tc-nds32.c	2026-11-07 13:59:56.129087443 +0000
+@@ -3606,7 +3606,7 @@
+     nds32_abi = E_NDS_ABI_V2FP;
+   else if (strcmp (str, "v1") == 0)
+     nds32_abi = E_NDS_ABI_V1;
+-  else if (strcmp (str,"v2fpp") == 0)
++  else if (strcmp (str,"v2fpp") == 0 || strcmp (str, "v2fp+") == 0)
+     nds32_abi = E_NDS_ABI_V2FP_PLUS;
+   else
+     {
