@@ -10,15 +10,20 @@ firm = {  # addresses recovered from the Cortex-M host (docs/FINDINGS.md section
  'periph 0x40030000 (+0x100..0x160)': 0x40030000, 'periph 0x40050000 (cmd block, +0x30/+0x34)': 0x40050000,
  'RAM 0x10000000 (128 KB)': 0x10000000, 'RAM 0x28000000 (32 KB)': 0x28000000, 'ext RAM 0x29000000': 0x29000000, 'SRAM 0x20000000': 0x20000000}
 consts = {}
+def clean(expr):
+    expr = re.sub(r'/\*.*?\*/', '', expr); expr = re.sub(r'//.*', '', expr)
+    expr = re.sub(r'\(\s*(?:u?int\d+_t|unsigned|int|long)\s*\)', '', expr)       # drop C casts
+    expr = re.sub(r'\b(0[xX][0-9a-fA-F]+|\d+)[uUlL]+', r'\1', expr)                 # drop literal suffixes
+    return expr.strip()
 for path in sys.argv[1:]:
-    txt = open(path, errors='ignore').read()
-    for m in re.finditer(r'#define\s+(\w+)\s+\(?\s*(?:\(\s*\w+\s*\))?\s*([^\n/]*?)\s*\)?\s*(?:/[*/].*)?$', txt, re.M):
-        name, expr = m.group(1), m.group(2)
-        e = re.sub(r'\b0[xX]([0-9a-fA-F]+)[uUlL]*', r'0x\1', expr).replace('UL', '').replace('U', '')
-        try:
-            v = eval(e, {}, dict(consts))
-            if isinstance(v, int) and v >= 0x1000: consts[name] = v
-        except Exception: pass
+    defs = re.findall(r'^[ \t]*#[ \t]*define[ \t]+(\w+)[ \t]+(.+)$', open(path, errors='ignore').read(), re.M)
+    for _ in range(4):                                  # resolve macros that depend on later ones
+        for name, expr in defs:
+            if name in consts: continue
+            try:
+                v = eval(clean(expr), {'__builtins__': {}}, dict(consts))
+                if isinstance(v, int) and v >= 0x1000: consts[name] = v
+            except Exception: pass
 bases = sorted((v, n) for n, v in consts.items() if n.endswith(('_BASE', '_BASE_ADDR', '_ADDR')) or 'BASE' in n)
 print(f'{len(bases)} base macros parsed')
 for label, a in firm.items():
