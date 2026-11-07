@@ -260,3 +260,21 @@ HTFW segment destinations: `b` at 0, `e` at `0x190000..0x1CD000` fit inside that
 **Inference (not proven):** `b` and `e` are the BP1048's own code and effect data; `c` (Thumb code, no peripheral accesses), `g` (float tables) and `f` (cab/IR name table, settings) are addressed in the **second processor's flash/address space** and presumably forwarded to it by the BP1048-side updater over the SPI/UART links.
 Alternative explanations still open: a BP1048P4 (4 MB) used with its own non-default layout, or an external SPI flash. The stock `0xB4 = 0x1F0000` argues against a P4 layout (which would use `0x3F0000`).
 The effect handling visible on the BP1048 side (DRUM Audio task, drum/aux effects from the SDK's effect library, empty effect table) is consistent with it *not* doing the amp/IR modelling.
+
+## 14. Fingerprint of segment `c`'s core, and a caveat on the version strings
+
+Linear sweep of `c` (Thumb-2, from its vector table at `+0x400`, 17,753 valid instructions):
+- **Single-precision VFP only:** 1,138 `f32` operations, **0** `f64`.
+- DSP-extension / saturating / SIMD-style instructions: 108; hardware divide (`sdiv`/`udiv`): 51; IT blocks: 490.
+- System-control literals: `VTOR`, `CCR`, `CPACR` (FPU enable); **no** cache-maintenance registers (`ICIALLU`, `DCC*`) or cache ID registers.
+- Built with ARM's C library (`SIGRTMEM`, `Heap memory corrupted`), i.e. Keil/ARMCC-style.
+This is most consistent with a **Cortex-M4F** (FPv4-SP, DSP extension, no caches). It is weaker evidence for an i.MX RT (Cortex-M7 with caches, and double-precision FPU on most parts). Not conclusive: a cache-less use of an M7 cannot be excluded, and the image touches no peripherals itself.
+
+Caveat on earlier note: the `V0.0.02`, `B0.0.02`, `V0.0.01` strings are adjacent rodata literals (runtime `0xe106c`-`0xe1154`) used by the UI info code (`0x271f6`, `0x28eb8`-`0x28ed0`), i.e. likely constants,
+so they do **not** by themselves show that the BP1048 queries another device's version. `dspVer= %s` / `bootVer= %s` (runtime `0xe1111`, `0xe1129`) are log formats and are not referenced by `sethi/ori` pairs.
+
+## Open questions after this pass
+1. How (or whether) segments `c`/`g`/`f` are delivered to the other processor: the BP1048 side shows a 460,800-baud UART0 (A0/A1) with a packet receiver and a 44.1 kHz stereo SPI-slave audio link (A20-A23), but no code was found that streams flash contents to a peer.
+2. Which chip is the SPI master / `c` runner (Cortex-M4F-like evidence only).
+3. The post-build edit of the flash-boot header (`0xB8`, `0xBC`, `0xD4`) and the HTFW header word at offset 4.
+4. The SPI-flash read/write/erase functions were not matched by signature; the SDK functions exist but their stock bytes differ from the reference builds.
