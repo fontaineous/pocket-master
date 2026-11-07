@@ -162,7 +162,8 @@ Measured with per-block entropy, disassembly validity (`*unknown*` rate) and cal
 | `0x000100–~0x0CF000` | ~830 KB | **code** (4,512 `jal` entry points, highest `0xcef30`; <1.3% undecodable, 8–17% call/ret) | |
 | `~0x0CF000–0x100000` | ~200 KB | sparse tables/data (70–80% zero bytes, entropy 1–2, ~1% calls) | |
 | `0x100000–0x130000` | 192 KB | **UI assets**: GIF89a at `0x1054bc` (Photoshop XMP), high-entropy payload in `0x110000–0x120000`; this is the block both CFWs rewrite (~108 KB differs) | signatures, diffs |
-| `0x130000–0x15bb60` | ~175 KB | more data (call/ret ~1%, 18% undecodable): includes the effect-mode table at `0x132748` (blank in stock) | |
+| `0x130000–0x15AEC0` | ~172 KB | **read-only data**: strings and constant tables (498 string refs in `0x130000`, 89 in `0x150000`), includes the effect-mode table at `0x132748` (blank in stock) | string xrefs |
+| `0x15AEC0–0x15BB60` | 3,232 B | **`.data` load image** (copied to RAM `0x20003900` at boot); last bytes of stock `b` | `__c_init` decode, section 10 |
 | `0x15bb60–` | | **CFW appended blob** (code placed after the data tail; flash is execute-in-place so this works) | diffs |
 
 Flash-boot header (SDK writes it in `startup/init-default.c`; stock values in the right column):
@@ -185,3 +186,23 @@ Other facts established:
 - The stack-protection bound `0x20003000` and `ivb = 0x10000` in stock equal the SDK source values, so startup code is unmodified SDK code.
 - On-chip RAM starts at `0x20000000`; the SDK's `.sag` puts RW data at `0x20003900`-`0x20004000`.
 - Effect handling (`FUNC_ID_EFFECT_MODE`, runtime `0x57754`) scans a table of 16-byte records at runtime `0x142748` for an id byte (`0xFF` terminates); in stock the table is empty and the string "No Audio effect File load!!!!" covers that case, so effects presumably come from a separately loaded effect file.
+
+## 10. Data tail, RAM map and how the CFWs obtain RAM
+
+**Boot data copy** (`__c_init`, file `0x526ac`, runtime `0x626ac`; `$gp = 0x2000FA40`):
+- `.data`: RAM `0x20003900–0x200045A0` (**3,232 B**), loaded from runtime `0x16AEC0` = file `0x15AEC0`, which is exactly the last 3,232 bytes of stock segment `b`.
+- `.bss`: `0x200045A0–0x2001BB88` (**~95 KB**), zeroed with `memset` up to `_end = 0x2001BB88`.
+- (An earlier note in this session had `.data` as 4,768 B; that was an arithmetic slip, corrected here.)
+
+**RAM facts (SDK sources):** on-chip SRAM starts at `0x20000000`; the SDK's MPU table uses `0x50000 - BB_EM_SIZE` bytes; `remap.h` has `SRAM_END_ADDR 0x20048000`.
+The **FreeRTOS heap is `[&_end, SRAM end)`** (`prvInitialiseHeap()` in `rtos_api.c`), so anything placed at or above `_end` in stock is heap and will be overwritten.
+
+**CFW technique for RAM (both CFW0.5 and CFW0.9.4, identical):**
+1. Patch the two `$gp`-relative loads of `_end` (file `0x526cc`: end of the `.bss` memset; `0x58c62`: heap start) from `0x2001BB88` to `0x2001BF88`:
+   **+0x400 bytes (1 KB) of zero-initialised RAM reserved at `0x2001BB88–0x2001BF88`**, heap pushed up by the same amount.
+2. New variables live in that block (blob references `0x2001bb90`, `0x2001bb94`, `0x2001bbcc`, `0x2001bbf0`, `0x2001bc38`).
+3. Ten stock `addi.gp` loads (file `0x8b68`...`0x8faa`) of a stock global at `0x2000c9a8`/`0x2000c9b0` are redirected to `0x2001bc88`/`0x2001bc90` in the new block.
+   Plausibly the enlarged user-IR table (20 to 25 slots) moved there; the identity of the stock global is **not** established.
+4. No change to the `.data` copy: the blob has no initialised RAM data, so all mutable state starts at zero.
+
+**Modding consequence:** to add code with state, (a) append code after `0x15bb60` (stay under the `0xB0` boundary, see section 9), and (b) either reuse the 1 KB trick (change the two `_end` loads; a larger value works the same way, at the cost of heap) or add a real `.data` image, which would also mean patching the `__c_init` copy size/source.
