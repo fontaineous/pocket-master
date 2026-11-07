@@ -600,5 +600,5 @@ difference (A-B)>>1 into the working struct. This was read from the disassembly,
 
 Reproduce: `python3 tools/serial_dma_trace.py c.bin g.bin ram_20000000.bin`.
 
-Still open: the cfg word bit fields; what 0x3EA configures; whether 0x40005000 (4th word of the serial table, also an unmapped
-address on the AT32 map) is a clock or pin block; and the UART path to the BP1048, which is probably the 0x40011000 block.
+Still open: the cfg word bit fields; what 0x3EA configures; whether 0x40005000 (4th word of the serial table; USART5 on the
+AT32 map, which is only an address coincidence) is a clock or pin block; and the UART path to the BP1048, which is probably the 0x40011000 block.
