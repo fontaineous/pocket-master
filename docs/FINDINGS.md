@@ -447,3 +447,17 @@ Against (stronger):
   The `0x4000C000` page is written as `reg[+4] |= 0x1000` followed by a PendSV trigger, not as an ISP flash command; `0x40050000` is TIMER0 on M480 but behaves as a descriptor/command block here; `0x40005000`, `0x40011000`, `0x40020000` match no M480 peripheral.
 - No access to the SYS/CLK pages (`0x40000000`, `0x40000200`) that M480 firmware normally touches.
 Conclusion: the 192/96 MHz clock plan is a useful constraint, but the memory and peripheral map do not match the M480. Use `tools/addr_fit.py` with other vendors' CMSIS headers to test further candidates.
+
+## 23. Candidate check: Artery AT32F4xx (incl. AT32F455) and a partial peripheral map (NOT a fit)
+
+Headers of the Artery families (`ArteryTek/*_Firmware_Library`, `libraries/cmsis/cm4/device_support/at32*.h`: F435/437, F45x, F402/405, F403/403A/407, F413, F415, F423, A423, F425, F422/426, F490) were run through `tools/addr_fit.py`.
+- Every family gives the same 3 generic hits (`0x40005000` USART5/UART5, `0x40011000` USART1, `0x40020000` GPIOA), i.e. the usual STM32-style addresses; these say little. The firmware does touch `0x40011008` and `0x4001100c`, which fits an STM32-style USART (BAUDR at +8, CTRL1 at +0xC), but that layout is common.
+- **None** provides RAM at `0x10000000` (the `0x10000000` string in the headers is `PERIPH_BASE + 0x10000000`, the AHB2 region), a window at `0x28000000` or external RAM at `0x29000000`; the Artery SDRAM/XMC windows are elsewhere.
+- The AT32F455 (F45x header) is no better than the other families.
+
+**Partial peripheral map recovered from the firmware itself** (host flash `0x9900-0x9a60`): three **serial-interface instances** at `0x4000B000 + n*0x1000` (n = 0..2; the firmware rejects n >= 3), each with TX and RX DMA.
+- Per instance: two DMA descriptor structures in RAM (pointers at `0x20002380` and `0x20002384`; words `+0` control, `+4`, `+8`/`+0xC` peripheral and buffer addresses, `+0x14` length), the instance's request IDs `0x20+2n` and `0x21+2n` written to **`0x40020224` / `0x40020228`**, further setup at `0x40020000 + 0x24/0x28`, then NVIC priority/enable.
+- Instance registers used: `+4` (config word, bit 4 = enable, bit 12 = another enable), `+8` (data/divider), `+0x10`.
+- `0x40020000` therefore behaves as a **linked-descriptor DMA controller with a request-select register file**, with channel-style blocks at `+0x100`, `+0x120`, ... (0x20 apart; seen at `0x40020100/0x40020120`, `0x40030100..0x40030160` for a second controller).
+This DMA style is not the STM32/AT32 one (per-channel CCR/CNDTR/CPAR/CMAR with a DMAMUX or fixed request map).
+Status of the identity question: still unknown. Constraints so far: Cortex-M4F + DSP extension, 192 MHz / 96 MHz / 64 MHz clock plan, about 508 KB flash (regions end `0x7f000`), RAM windows `0x10000000` (128 KB), `0x20000000`, `0x28000000` (32 KB), external RAM `0x29000000` (>= 881 KB used), the peripheral map above.
