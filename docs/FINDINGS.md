@@ -525,3 +525,29 @@ Static scan of flash code and the RAM-resident code (constants loaded via litera
 | `0x50000000` | `+0`, `+4`, `+8` written once by `0x87e0` | unknown |
 | `0x402e0000`, `0x407e0000` | false positives: the "function" `0xdba8` is a data table decoded as code | ignore |
 **Audio:** there is no dedicated I2S, ADC or DAC register block among these. Audio reaches the host through the three DMA-driven serial instances (mono input `int32` buffer at `IO+8`, aux L/R arrays at `0x200025bc`/`0x200026bc`) and leaves as 16-bit stereo at `0x200027bc`; the converters are on the other side of those links (the BP1048-class chip, whose own audio ADC/DAC addresses are visible in its SDK, e.g. DMA at `0x4000D000`).
+
+## 29. Test against the AT32F455/456/457 Reference Manual (owner-supplied, Ver 2.00)
+
+The manual itself was uploaded by the owner and is not copied into the repo.
+Table 2-3 (peripheral boundaries) compared with the addresses the M4 image uses:
+
+| Firmware address use | AT32F455 at that address | Verdict |
+|---|---|---|
+| 0x40020000 DMA-like block (+0x20 busy, +0x24 enable, +0x28 sync, channels at +0x100+0x20n) | GPIO port A (0x40020000-03FF); DMA1/DMA2 are at 0x40026000/0x40026400 with an STS/CLR/CxCTRL layout | no match |
+| 0x40030000 second controller | Reserved (CRC is 0x40023000) | no match |
+| 0x4000B000 + n*0x1000 (3 DMA serial instances) | Reserved (APB1 0x40008000-0x4000FFFF) | no match |
+| 0x4000E000 init block | Reserved | no match |
+| 0x40011000 pinmux-like block | USART1 (at 0x40011000) | address collision only; firmware writes 0x55555555 to +0x30/+0x34/+0x6c, which does not fit USART |
+| 0x40050000 command/status block | Reserved (OTG_FS1 is 0x50000000) | no match |
+| 0x50000000 | OTG_FS1 | address collision only; unverified |
+| 0x10000000 128 KB code/data window, 0x28000000, 0x29000000 | Not an AT32 SRAM region (SRAM 0x20000000-0x2023FFFF; 0x10000000 falls inside the QSPI multi-map range 0x09000000-0x18FFFFFF) | no match |
+
+The AT32 uses DMA1/DMA2 plus a DMAMUX, I2SF and CRM. The firmware has no
+access to the CRM at 0x40023800 or to the AT32 DMA bases.
+
+Conclusion: the image does not run on an AT32F455. The few collisions, USART1
+at 0x40011000 and OTG_FS1 at 0x50000000, are page coincidences and the register
+usage disagrees with them. Together with the M480 result in section 26 this
+leaves the host M4 as an undocumented or custom-peripheral part.
+Cross-checking this against the 0x4000B000 serial instances would still be
+the next useful comparison.
