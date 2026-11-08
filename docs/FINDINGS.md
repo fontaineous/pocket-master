@@ -706,3 +706,20 @@ Details of the buffer layout are in `docs/looper_notes.md`. New here:
   attempt with the jumpers left in connected to the Nucleo's own STM32F303 (device ID 0x446) and tells nothing about the pedal.
 - The SOIC-8 part near the BP1048 is probably a battery controller, not a SPI NOR. No NOR flash was found. The CFW manual's advice to dump
   the flash with a CH341A and SOP-8 clip is therefore not understood and may not apply to this board.
+
+## 36. Memory budget of the second processor (boot trace and module probe)
+
+Run unmodified in the emulator (`reset 0x4d91`, then the scatter-load and C runtime): the three zero-fills are 0x1001f400 (0xc00), 0x200023bc (0x472c) and
+**0x29000000 (0xd7580)**; the decompressor fills 0x2000218c (0x230). The C runtime then builds a heap descriptor at 0x20004ae8 with
+**one 0xff0-byte block at 0x20004af8**, and the heap-extension routines (0x4b00, 0x4b28) contain `nop.w` where an OS call would be,
+so the heap is not grown: it is about 4 KB of on-chip SRAM, used by the module loader for its small index structures (the mallocs
+seen during ModuleLib_Install are 8-0x5c bytes).
+
+Module slots (descriptor table at RAM 0x200021a4): payload slots inside 0x10000000-0x1001f400 (sizes 0x1000-0xc400) and data
+windows at 0x28004000-0x28008000 (0x400-0x1800 bytes each; slots 6-8 have none). `tools/module_mem_probe.py` loads every module through the real loader and runs six
+blocks: **no module touches 0x29000000**, slots 2-5 use the 0x28000000 windows (spans of 14-24 KB) and slots 1 and 6-8 touch neither. Only
+three code sites in segment c hold the literal 0x29000000 (0x8fd4, 0x90c8, 0xe3c4), all in the looper init/scatter code.
+
+Consequence: as far as the code examined shows, **the SDRAM is used only by the looper (882 KB of the 8 MB)**. Not explained: where the
+delay and reverb buffers live (not in the SDRAM and not in the windows in this probe; probably in on-chip SRAM beyond 0x20006ae8, whose size is unknown).
+Caveats: the probe uses default parameters and six blocks, so lazily allocated state may not show; the emulator maps 1 MB at 0x20000000, so an access beyond the real SRAM would not fault there.
