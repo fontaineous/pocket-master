@@ -723,3 +723,18 @@ three code sites in segment c hold the literal 0x29000000 (0x8fd4, 0x90c8, 0xe3c
 Consequence: as far as the code examined shows, **the SDRAM is used only by the looper (882 KB of the 8 MB)**. Not explained: where the
 delay and reverb buffers live (not in the SDRAM and not in the windows in this probe; probably in on-chip SRAM beyond 0x20006ae8, whose size is unknown).
 Caveats: the probe uses default parameters and six blocks, so lazily allocated state may not show; the emulator maps 1 MB at 0x20000000, so an access beyond the real SRAM would not fault there.
+
+## 37. Search for the loader that programs the second processor (negative result so far)
+
+Looked for any code on either chip that transfers segments c/g/f to the second processor:
+
+- **BP1048 application (segment b).** Found no routine that streams an image out. Its only visible link to the other chip is the SPI audio port and the UART0
+  tuning-protocol receiver. The factory-test screen (code at file 0x18e40, strings at runtime 0xe1100-0xe1150) prints `dspVer`, `mcuVer`, `bootVer`, `HwVer`
+  and `uid`; these come from constant strings and a settings struct (`0x418b4` copies a version string from a structure whose first half-word must be 0x5AFF), not from a query to the other chip that I could trace.
+  The code at file 0xa2040-0xa2290 that compares against 0x65/0x66/0x67 is a Bluetooth state machine, not a segment-type dispatcher.
+- **Second processor (segment c).** Its flash driver (erase 0x8488, page program 0x84c8, reached through veneers 0x4dbc / 0x4dd0 into RAM routines at 0x200001e4 and 0x2000032c) is only called from the storage code at 0x7332-0x7e2a
+  (user IR / Clone / name regions, which the CFW rewrites). Nothing found that writes the code and DSP regions (0x4000-0x64fff).
+- **Interpretation.** The update of segments c/g/f (the CFW replaces c and g) must be done by something that is not in the update file: the **bootloader on the BP1048 or on the second
+  processor**, which the CFW manual says is not part of the update. The loader protocol is therefore not recoverable from the package.
+- **Experiments that would reveal it without a flash dump:** watch the header's reset line and the BP1048's UART/SPI pins with a scope or logic analyser while Sonicake Manager flashes a firmware (a reset pulse followed by traffic on a UART or SPI line would show how the other chip is entered and what protocol it speaks).
+  The segment c header (0x400 bytes: 8 x 0xFF, "V132", 0x4400, zeros) is also a format fingerprint for the second chip's bootloader.
